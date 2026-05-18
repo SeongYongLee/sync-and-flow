@@ -1,0 +1,11 @@
+name = "sync-and-flow"
+main = "src/index.ts"
+compatibility_date = "2026-05-07"
+
+[[durable_objects.bindings]]
+name = "PRESENCE_ROOM"
+class_name = "PresenceRoom"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["PresenceRoom"]

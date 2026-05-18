@@ -1,0 +1,46 @@
+{
+  "name": "sync-and-flow",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest",
+    "dev": "vite",
+    "dev:desktop-web": "vite --host 0.0.0.0 --port 5175 --strictPort",
+    "build": "vite build",
+    "replay": "tsx scripts/replay.ts",
+    "cli": "tsx src/node/cli.ts",
+    "dev:worker": "pnpm dlx wrangler@latest dev --config worker/wrangler.toml --local --port 8787",
+    "dev:worker:alt": "pnpm dlx wrangler@latest dev --config worker/wrangler.toml --local --port 8788",
+    "dev:worker:lan": "pnpm dlx wrangler@latest dev --config worker/wrangler.toml --local --ip 0.0.0.0 --port 8787",
+    "dev:lan": "vite --host 0.0.0.0",
+    "dev:phase2:lan": "concurrently -n worker,web,app \"pnpm dev:worker:lan\" \"pnpm dev:desktop-web\" \"pnpm flow-link:desktop:dev\"",
+    "dev:phase2": "concurrently -n worker,web,app \"pnpm dev:worker\" \"pnpm dev:desktop-web\" \"pnpm flow-link:desktop:dev\"",
+    "e2e:worker-publish": "node scripts/e2e-worker-publish.mjs",
+    "e2e:worker-publish:alt": "node scripts/e2e-worker-publish.mjs ws://127.0.0.1:8788",
+    "smoke:web": "node scripts/smoke-web.mjs",
+    "smoke:web:worker": "REQUIRE_WORKER=1 node scripts/smoke-web.mjs",
+    "flow-link:desktop:dev": "pnpm --dir apps/flow-link dev",
+    "flow-link:desktop:build": "pnpm flow-link:desktop:build:app",
+    "flow-link:desktop:build:app": "pnpm --dir apps/flow-link exec tauri build --bundles app",
+    "flow-link:desktop:build:mac": "node scripts/build-flow-link-dmg.mjs",
+    "flow-link:desktop:build:windows": "pnpm --dir apps/flow-link exec tauri build --bundles nsis,msi"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "2.1.9",
+    "concurrently": "^9.2.1",
+    "esbuild": "^0.28.0",
+    "playwright-core": "1.57.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0",
+    "vitest": "^2.1.0"
+  },
+  "packageManager": "pnpm@9.15.9"
+}

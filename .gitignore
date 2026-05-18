@@ -1,0 +1,12 @@
+node_modules/
+.pnpm-home/
+.corepack/
+dist/
+dist-worker/
+coverage/
+public/downloads/*.dmg
+public/downloads/*.exe
+public/downloads/*.msi
+apps/flow-link/src-tauri/target/
+worker/.wrangler/
+.DS_Store

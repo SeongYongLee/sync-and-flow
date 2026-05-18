@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>Sync and Flow</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        background: rgb(8, 6, 20);
+        overflow: hidden;
+        font-family: 'SF Mono', 'Fira Code', monospace;
+        color: rgba(255, 255, 255, 0.85);
+      }
+
+      #canvas {
+        position: fixed;
+        inset: 0;
+      }
+
+      #hud {
+        position: fixed;
+        top: 24px;
+        left: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      #hud .label {
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.35);
+      }
+
+      #hud .value {
+        font-size: 15px;
+        color: rgba(200, 160, 255, 0.95);
+        letter-spacing: 0.04em;
+      }
+
+      #hud .row {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      #status {
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        color: rgba(255, 255, 255, 0.3);
+        z-index: 10;
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-user-drag: none;
+      }
+
+      #energy-bar-wrap {
+        position: fixed;
+        bottom: 32px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      #energy-label {
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.3);
+      }
+
+      #energy {
+        font-size: 22px;
+        letter-spacing: 0.06em;
+        color: rgba(120, 200, 255, 0.9);
+      }
+
+      #title {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.12);
+        z-index: 10;
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-user-drag: none;
+      }
+
+      #mobile-share {
+        position: fixed;
+        right: 24px;
+        bottom: 56px;
+        z-index: 12;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        padding: 9px 13px;
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.78);
+        font: inherit;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        backdrop-filter: blur(12px);
+      }
+
+      #mobile-qr-panel {
+        position: fixed;
+        right: 24px;
+        bottom: 96px;
+        z-index: 20;
+        width: min(310px, calc(100vw - 48px));
+        padding: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 18px;
+        background: rgba(12, 14, 28, 0.92);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+        backdrop-filter: blur(18px);
+      }
+
+      #mobile-qr-panel[hidden] { display: none; }
+
+      #mobile-qr-panel header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      #mobile-qr-panel h2 {
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.76);
+      }
+
+      #mobile-qr-close {
+        border: 0;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.58);
+        cursor: pointer;
+        font-size: 18px;
+      }
+
+      #mobile-qr {
+        display: grid;
+        place-items: center;
+        padding: 12px;
+        border-radius: 14px;
+        background: #f8fafc;
+        color: #0f172a;
+        min-height: 244px;
+      }
+
+      #mobile-qr[hidden] { display: none; }
+
+      #mobile-host-form {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      #mobile-host-form[hidden] { display: none; }
+
+      #mobile-host {
+        min-width: 0;
+        flex: 1;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 999px;
+        padding: 9px 12px;
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.86);
+        font: inherit;
+        font-size: 11px;
+      }
+
+      #mobile-host-submit {
+        border: 0;
+        border-radius: 999px;
+        padding: 9px 12px;
+        background: rgba(128, 180, 255, 0.92);
+        color: rgb(8, 12, 24);
+        font: inherit;
+        font-size: 10px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      #mobile-url {
+        margin-top: 10px;
+        overflow-wrap: anywhere;
+        font-size: 10px;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.46);
+      }
+
+      #flow-link-card {
+        position: fixed;
+        left: 24px;
+        bottom: 28px;
+        z-index: 12;
+        width: min(306px, calc(100vw - 48px));
+        padding: 14px;
+        border: 1px solid rgba(128, 180, 255, 0.22);
+        border-radius: 16px;
+        background: rgba(12, 15, 31, 0.9);
+        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.34);
+        backdrop-filter: blur(16px);
+      }
+
+      #flow-link-card[hidden], #flow-link-modal[hidden] { display: none; }
+
+      #flow-link-card header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+
+      #flow-link-card .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 7px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(128, 180, 255, 0.9);
+      }
+
+      #flow-link-card .eyebrow::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: rgba(128, 180, 255, 0.94);
+        box-shadow: 0 0 16px rgba(128, 180, 255, 0.8);
+      }
+
+      #flow-link-card h2 {
+        font-size: 14px;
+        line-height: 1.3;
+        color: rgba(255, 255, 255, 0.92);
+      }
+
+      #flow-link-card p {
+        margin-bottom: 12px;
+        font-size: 11px;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.62);
+      }
+
+      #flow-link-card strong {
+        color: rgba(255, 255, 255, 0.84);
+        font-weight: 700;
+      }
+
+      #flow-link-dismiss {
+        flex: 0 0 auto;
+        width: 24px;
+        height: 24px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+        font: inherit;
+        font-size: 15px;
+        line-height: 1;
+      }
+
+      #flow-link-dismiss:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.78);
+      }
+
+      #flow-link-install {
+        width: 100%;
+      }
+
+      .primary-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 999px;
+        padding: 10px 14px;
+        background: rgba(128, 180, 255, 0.92);
+        color: rgb(8, 12, 24);
+        font: inherit;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      .secondary-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        padding: 10px 14px;
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.78);
+        font: inherit;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-decoration: none;
+      }
+
+      .secondary-action[data-recommended="true"] {
+        border-color: rgba(128, 180, 255, 0.45);
+        background: rgba(128, 180, 255, 0.12);
+        color: rgba(210, 228, 255, 0.95);
+      }
+
+      #flow-link-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: rgba(0, 0, 0, 0.48);
+        backdrop-filter: blur(10px);
+      }
+
+      #flow-link-dialog {
+        width: min(560px, 100%);
+        padding: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 24px;
+        background: rgba(12, 15, 31, 0.96);
+        box-shadow: 0 32px 100px rgba(0, 0, 0, 0.52);
+      }
+
+      #flow-link-dialog header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      #flow-link-dialog h2 {
+        font-size: 19px;
+        color: rgba(255, 255, 255, 0.92);
+      }
+
+      #flow-link-dialog p, #flow-link-dialog li {
+        font-size: 12px;
+        line-height: 1.65;
+        color: rgba(255, 255, 255, 0.62);
+      }
+
+      #flow-link-dialog ul {
+        margin: 12px 0;
+        padding-left: 18px;
+      }
+
+      #flow-link-downloads {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      #flow-link-close {
+        border: 0;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.58);
+        cursor: pointer;
+        font-size: 20px;
+      }
+
+      #flow-link-command {
+        margin: 14px 0;
+        padding: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        overflow-x: auto;
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.86);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      #diagnostics-toggle {
+        position: fixed;
+        right: 24px;
+        top: 52px;
+        z-index: 12;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 999px;
+        padding: 7px 10px;
+        background: rgba(255, 255, 255, 0.07);
+        color: rgba(255, 255, 255, 0.58);
+        font: inherit;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        backdrop-filter: blur(12px);
+      }
+
+      #diagnostics-panel {
+        position: fixed;
+        top: 84px;
+        right: 24px;
+        z-index: 24;
+        width: min(420px, calc(100vw - 48px));
+        max-height: calc(100vh - 108px);
+        overflow: auto;
+        padding: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 20px;
+        background: rgba(10, 13, 28, 0.94);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+        backdrop-filter: blur(18px);
+      }
+
+      #diagnostics-panel[hidden] { display: none; }
+
+      #diagnostics-panel header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+
+      #diagnostics-panel h2 {
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.78);
+      }
+
+      #diagnostics-close {
+        border: 0;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.58);
+        cursor: pointer;
+        font-size: 18px;
+      }
+
+      #diagnostics-grid {
+        display: grid;
+        grid-template-columns: 120px minmax(0, 1fr);
+        gap: 8px 12px;
+        font-size: 11px;
+        line-height: 1.45;
+      }
+
+      #diagnostics-grid dt {
+        color: rgba(255, 255, 255, 0.38);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      #diagnostics-grid dd {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: rgba(255, 255, 255, 0.76);
+      }
+
+      #diagnostics-refresh {
+        margin-top: 14px;
+      }
+
+      @media (max-width: 640px) {
+        #flow-link-card {
+          top: 150px;
+          bottom: auto;
+          left: 16px;
+          width: min(306px, calc(100vw - 32px));
+          padding: 12px;
+        }
+
+        #flow-link-card h2 {
+          font-size: 13px;
+        }
+
+        #flow-link-card p {
+          font-size: 10.5px;
+          line-height: 1.45;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+
+    <div id="hud">
+      <div class="row">
+        <span class="label">Model</span>
+        <span class="value" id="model">—</span>
+      </div>
+      <div class="row">
+        <span class="label">Sessions</span>
+        <span class="value" id="turns">0 turns</span>
+      </div>
+      <div class="row">
+        <span class="label">Output Tokens</span>
+        <span class="value" id="output-tokens">0</span>
+      </div>
+    </div>
+
+    <div id="status">● WAITING</div>
+    <button id="diagnostics-toggle" type="button">DIAGNOSTICS</button>
+
+    <div id="energy-bar-wrap">
+      <span id="energy-label">Flow Energy</span>
+      <span id="energy">0 flow</span>
+    </div>
+
+    <div id="title">Sync &amp; Flow</div>
+    <section id="flow-link-card" hidden aria-labelledby="flow-link-card-title">
+      <header>
+        <div>
+          <div class="eyebrow">Viewer only</div>
+          <h2 id="flow-link-card-title">Make this screen react to your own AI work.</h2>
+        </div>
+        <button id="flow-link-dismiss" type="button" aria-label="Hide Flow Link prompt">×</button>
+      </header>
+      <p><strong>Flow Link</strong> connects local Claude/Codex token activity. Counts and model names are shared; prompts stay private.</p>
+      <button id="flow-link-install" class="primary-action" type="button">Install Flow Link</button>
+    </section>
+
+    <button id="mobile-share" type="button">MOBILE QR</button>
+    <section id="mobile-qr-panel" hidden>
+      <header>
+        <h2>Open On Phone</h2>
+        <button id="mobile-qr-close" type="button" aria-label="Close">×</button>
+      </header>
+      <form id="mobile-host-form" hidden>
+        <input id="mobile-host" name="host" type="text" inputmode="decimal" placeholder="Mac LAN IP" autocomplete="off" />
+        <button id="mobile-host-submit" type="submit">QR</button>
+      </form>
+      <div id="mobile-qr"></div>
+      <p id="mobile-url"></p>
+    </section>
+
+    <section id="flow-link-modal" hidden>
+      <div id="flow-link-dialog" role="dialog" aria-modal="true" aria-labelledby="flow-link-title">
+        <header>
+          <div>
+            <h2 id="flow-link-title">Flow Link Desktop App</h2>
+            <p>Flow Link connects this computer through its built-in local bridge.</p>
+          </div>
+          <button id="flow-link-close" type="button" aria-label="Close">×</button>
+        </header>
+        <ul>
+          <li>It reads local Claude/Codex token logs.</li>
+          <li>It sends token counts, source, model, and timestamps.</li>
+          <li>It never sends prompts or responses.</li>
+        </ul>
+        <p>Install and open the desktop app. It starts the local bridge automatically and connects to:</p>
+        <pre id="flow-link-worker-url"></pre>
+        <div id="flow-link-downloads">
+          <a id="flow-link-download-mac" class="secondary-action" href="/downloads/Flow-Link.dmg" download>Download for macOS</a>
+          <a id="flow-link-download-windows" class="secondary-action" href="/downloads/Flow-Link-Setup.exe" download>Download for Windows</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="diagnostics-panel" hidden>
+      <header>
+        <h2>Bridge Diagnostics</h2>
+        <button id="diagnostics-close" type="button" aria-label="Close">×</button>
+      </header>
+      <dl id="diagnostics-grid"></dl>
+      <button id="diagnostics-refresh" class="primary-action" type="button">Refresh</button>
+    </section>
+
+    <script type="module" src="/src/web/main.ts"></script>
+  </body>
+</html>

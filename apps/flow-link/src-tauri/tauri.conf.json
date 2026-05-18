@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Flow Link",
+  "version": "0.1.0",
+  "identifier": "com.sync-and-flow.link",
+  "build": {
+    "devUrl": "http://127.0.0.1:5175",
+    "beforeBuildCommand": "pnpm --dir ../.. build",
+    "frontendDist": "../../../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "create": false,
+        "title": "Flow Link",
+        "width": 1200,
+        "height": 820,
+        "minWidth": 860,
+        "minHeight": 620,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "DeveloperTool",
+    "icon": [],
+    "shortDescription": "Connect Claude/Codex activity to Sync and Flow.",
+    "longDescription": "Flow Link shows the Sync and Flow visualization and connects local Claude/Codex token activity to your planet."
+  }
+}

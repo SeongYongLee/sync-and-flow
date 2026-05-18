@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "outDir": "../dist-worker",
+    "types": []
+  },
+  "include": ["src/**/*.ts", "../src/shared/**/*.ts", "../src/core/types.ts"]
+}
