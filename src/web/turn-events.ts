@@ -18,6 +18,7 @@ export interface TurnEventDeps {
   selfId: string;
   viewport: ViewportSize;
   now?: () => number;
+  shouldUpdateHud?: (ownerId: string) => boolean;
 }
 
 export function applyTurnEvent(ownerId: string, event: TurnEvent | TurnMessage, deps: TurnEventDeps): boolean {
@@ -30,7 +31,7 @@ export function applyTurnEvent(ownerId: string, event: TurnEvent | TurnMessage, 
   deps.particles.spawn(core, count, color, deps.viewport, isSelf);
 
   applyCoreEventState(core, event.energy, event.source, event.model, deps.now?.() ?? Date.now());
-  if (isSelf) deps.hud.updateTurn(event.source, event.model, event.totals.turns, event.totals.outputTokens, event.energy);
+  if (shouldUpdateHud(ownerId, deps)) deps.hud.updateTurn(event.source, event.model, event.totals.turns, event.totals.outputTokens, event.energy);
   return true;
 }
 
@@ -39,8 +40,12 @@ export function applySnapshotEvent(ownerId: string, event: SnapshotEvent, deps: 
   if (!core) return false;
 
   applyCoreEventState(core, event.energy, event.source, event.model, deps.now?.() ?? Date.now());
-  if (ownerId === deps.selfId) deps.hud.updateTurn(event.source, event.model, event.totals.turns, event.totals.outputTokens, event.energy);
+  if (shouldUpdateHud(ownerId, deps)) deps.hud.updateTurn(event.source, event.model, event.totals.turns, event.totals.outputTokens, event.energy);
   return true;
+}
+
+function shouldUpdateHud(ownerId: string, deps: Omit<TurnEventDeps, "particles">): boolean {
+  return deps.shouldUpdateHud?.(ownerId) ?? ownerId === deps.selfId;
 }
 
 function applyCoreEventState(core: CoreState, energy: number, source: string, model: string, timestamp: number): void {

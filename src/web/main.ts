@@ -26,6 +26,7 @@ const particles = new ParticleSystem();
 const cores = new Map<string, CoreState>();
 const grid = new GridLayer();
 let selfId = "";
+let isViewerOnly = false;
 let currentZoom = 1;
 let lastFrameAt = performance.now();
 
@@ -99,11 +100,15 @@ function tick(now = performance.now()) {
 }
 
 function applyTurn(ownerId: string, event: TurnEvent | TurnMessage) {
-  applyTurnEvent(ownerId, event, { cores, particles, hud, selfId, viewport: viewport() });
+  applyTurnEvent(ownerId, event, { cores, particles, hud, selfId, viewport: viewport(), shouldUpdateHud });
 }
 
 function applySnapshot(ownerId: string, event: SnapshotEvent) {
-  applySnapshotEvent(ownerId, event, { cores, hud, selfId, viewport: viewport() });
+  applySnapshotEvent(ownerId, event, { cores, hud, selfId, viewport: viewport(), shouldUpdateHud });
+}
+
+function shouldUpdateHud(ownerId: string): boolean {
+  return ownerId === selfId || isViewerOnly;
 }
 
 function onWorkerMessage(message: WorkerToBrowserMessage) {
@@ -125,6 +130,7 @@ async function boot() {
   const { identity, mode } = await getPresenceIdentityResult();
   setupFlowLinkPrompt(mode);
   selfId = identity.userId;
+  isViewerOnly = mode !== "local-bridge";
   if (mode === "local-bridge") {
     ensureCore({ id: identity.userId, nickname: identity.nickname, color: identity.color });
   }

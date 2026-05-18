@@ -94,6 +94,29 @@ describe("turn event application", () => {
     expect(hud.calls).toBe(0);
   });
 
+  it("updates HUD for peer turns when the caller is a viewer-only display", () => {
+    const cores = new Map([["peer", core("peer")]]);
+    const particles = { spawn() {} };
+    const hud = {
+      calls: [] as unknown[][],
+      updateTurn(...args: unknown[]) {
+        this.calls.push(args);
+      },
+    };
+
+    expect(
+      applyTurnEvent("peer", turn, {
+        cores,
+        particles,
+        hud,
+        selfId: "viewer",
+        viewport: { width: 800, height: 600 },
+        shouldUpdateHud: () => true,
+      }),
+    ).toBe(true);
+    expect(hud.calls).toEqual([["codex", "gpt-5-codex", 3, 61, 99]]);
+  });
+
   it("applies snapshots without spawning particles", () => {
     const cores = new Map([["me", core("me")]]);
     const hud = {
