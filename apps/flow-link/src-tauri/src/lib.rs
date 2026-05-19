@@ -28,6 +28,7 @@ use native_bridge::{
 };
 
 const FLOW_LINK_BUILD_ID: &str = "pi-roots-2026-05-18T23:35KST";
+const FLOW_LINK_APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 const FLOW_LINK_SCAN_ROOTS: [&str; 3] = [
     "~/.claude/projects",
     "~/.codex/sessions",
@@ -549,7 +550,8 @@ fn handle_http(mut stream: TcpStream, state: Arc<Mutex<NativeBridgeState>>) {
                 write_json(
                     &mut stream,
                     &format!(
-                        "{{\"ok\":true,\"runtime\":\"tauri-native\",\"buildId\":\"{}\",\"scanRoots\":{},\"sourceRoots\":{},\"sources\":[{}],\"clients\":{},\"watchedFiles\":{},\"watchedBytes\":{},\"latestFile\":\"{}\",\"latestFileSize\":{},\"latestFileModifiedAt\":\"{}\",\"recentJsonlFiles\":{},\"lastScanAt\":\"{}\",\"lastEventAt\":\"{}\",\"lastSource\":\"{}\",\"lastModel\":\"{}\",\"lastFile\":\"{}\",\"lastReadAt\":\"{}\",\"lastReadFile\":\"{}\",\"readLines\":{},\"parseMisses\":{},\"lastError\":\"{}\",\"workerUrl\":\"{}\",\"lastWorkerPublishAt\":\"{}\",\"lastWorkerError\":\"{}\"}}",
+                        "{{\"ok\":true,\"runtime\":\"tauri-native\",\"appVersion\":\"{}\",\"buildId\":\"{}\",\"scanRoots\":{},\"sourceRoots\":{},\"sources\":[{}],\"clients\":{},\"watchedFiles\":{},\"watchedBytes\":{},\"latestFile\":\"{}\",\"latestFileSize\":{},\"latestFileModifiedAt\":\"{}\",\"recentJsonlFiles\":{},\"lastScanAt\":\"{}\",\"lastEventAt\":\"{}\",\"lastSource\":\"{}\",\"lastModel\":\"{}\",\"lastFile\":\"{}\",\"lastReadAt\":\"{}\",\"lastReadFile\":\"{}\",\"readLines\":{},\"parseMisses\":{},\"lastError\":\"{}\",\"workerUrl\":\"{}\",\"lastWorkerPublishAt\":\"{}\",\"lastWorkerError\":\"{}\"}}",
+                        FLOW_LINK_APP_VERSION,
                         FLOW_LINK_BUILD_ID,
                         scan_roots,
                         source_roots,

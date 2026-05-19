@@ -12,6 +12,7 @@ export class HudController {
   private readonly model = document.getElementById("model")!;
   private readonly planet = document.getElementById("planet")!;
   private readonly planetMix = document.getElementById("planet-mix")!;
+  private readonly viewers = document.getElementById("viewers")!;
   private readonly turns = document.getElementById("turns")!;
   private readonly output = document.getElementById("output-tokens")!;
   private readonly energy = document.getElementById("energy")!;
@@ -38,6 +39,10 @@ export class HudController {
     this.turns.textContent = `${turns} turns`;
     this.output.textContent = outputTokens.toLocaleString();
     this.energy.textContent = `${Math.round(energy).toLocaleString()} flow`;
+  }
+
+  updateViewerCount(count: number): void {
+    this.viewers.textContent = `${count.toLocaleString()} viewer${count === 1 ? "" : "s"}`;
   }
 
   private renderStatus(detail: string): void {

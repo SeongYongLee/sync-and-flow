@@ -105,6 +105,17 @@ pnpm cli --cwd /your/project          # 라이브 모니터링
 
 Flow Link 데스크톱 앱은 자체 Tauri native bridge를 띄워 로컬 Claude Code, Codex CLI, Pi 활동을 읽는다. 사용자는 별도 백그라운드 프로세스나 다운로드 스크립트를 실행하지 않는다.
 
+개발 중 Worker, 웹, 앱을 동시에 확인할 때는 코드 변경 후 Worker를 재시작해야 한다. 웹/Vite는 HMR로 갱신되지만 Worker Durable Object 로직은 이미 떠 있는 `pnpm dev:worker` 프로세스에 남아 있을 수 있다.
+
+동시 실행 상태 확인:
+
+```bash
+pnpm dev:phase2
+pnpm smoke:sync
+```
+
+`pnpm smoke:sync`는 같은 identity를 가진 두 브라우저 viewer를 열고, 하나의 Worker publish 이벤트가 두 화면에 같은 planet/HUD 상태로 도착하는지 확인한다.
+
 지원하는 로컬 로그 루트는 명시적으로 제한한다.
 
 - Claude Code: `~/.claude/projects`
@@ -185,6 +196,7 @@ http://<worker-lan-ip>:5175/?worker=ws://<worker-lan-ip>:8787
 검증 포인트:
 
 - Worker health: `http://<worker-lan-ip>:8787/health`가 `{"ok":true,"service":"sync-and-flow-worker"}`를 반환해야 한다.
+- 웹과 앱을 동시에 켰는데 상태가 다르면 Worker를 먼저 재시작한 뒤 두 화면을 새로고침한다. 같은 Mac의 앱/웹은 같은 bridge identity를 쓰며, Worker는 같은 userId의 여러 viewer를 동시에 유지한다.
 - 웹 접속: 다른 Mac/모바일에서 `http://<worker-lan-ip>:5175/`가 열려야 한다. 연결 거부면 `pnpm dev:desktop-web` 또는 `pnpm dev:phase2:lan`이 LAN host로 떠 있지 않은 상태다.
 - publish 상태: Flow Link 메뉴바 `Diagnostics`에서 `scanRoots`가 `~/.claude/projects`, `~/.codex/sessions`, `~/.pi/agent/sessions`를 표시해야 한다. `sourceRoots`에서 사용하는 source의 `root/logDir`가 `ok`이고, turn 이후 `lastWorkerPublishAt`이 채워져야 한다.
 - publish 실패: `lastWorkerError`가 있으면 Worker URL, 방화벽, 같은 Wi-Fi 여부, VPN/프라이빗 릴레이를 먼저 확인한다.
@@ -209,7 +221,7 @@ Current scope:
 
 - Reuse the existing web UI inside a desktop window.
 - Start and own the local native bridge inside the Tauri backend.
-- Read Claude/Codex session logs locally and expose token events to the web UI.
+- Read Claude/Codex/Pi session logs locally and expose token events to the web UI.
 - Prepare for macOS menu bar and Windows tray support.
 
 Current shell behavior:
@@ -230,7 +242,7 @@ Browser download URLs:
 
 ```text
 VITE_FLOW_LINK_MAC_DOWNLOAD_URL      # default: /downloads/Flow-Link.dmg
-VITE_FLOW_LINK_WINDOWS_DOWNLOAD_URL  # default: /downloads/Flow-Link-Setup.exe
+VITE_FLOW_LINK_WINDOWS_DOWNLOAD_URL  # hidden until configured
 ```
 
 When the web viewer cannot find a local bridge, it shows OS-specific Flow Link download links. The downloaded installer should install the desktop app itself; the app owns the local bridge on macOS and Windows.
@@ -241,16 +253,28 @@ Release builds:
 - macOS artifacts are uploaded from `apps/flow-link/src-tauri/target/release/bundle/dmg/*.dmg`.
 - Windows artifacts are uploaded from `apps/flow-link/src-tauri/target/release/bundle/nsis/*.exe` and `apps/flow-link/src-tauri/target/release/bundle/msi/*.msi`.
 - Publish those artifacts to the URLs configured by `VITE_FLOW_LINK_MAC_DOWNLOAD_URL` and `VITE_FLOW_LINK_WINDOWS_DOWNLOAD_URL`.
+- macOS local builds produce and copy `public/downloads/Flow-Link.dmg`.
+- Windows installers must be built on Windows. The local macOS command intentionally stops with an explanation instead of pretending to produce NSIS/MSI artifacts.
 
 Prerequisites:
 
 - Rust toolchain from `https://rustup.rs`
 - Tauri OS prerequisites from `https://tauri.app/start/prerequisites/`
 - Windows builds should be produced on Windows, for example with Tauri's NSIS or MSI bundle target.
+- Public macOS distribution requires Developer ID signing and notarization. Local ad-hoc signed DMGs are acceptable for LAN testing, but not for a polished public install flow.
+- Public Windows distribution requires code signing to reduce SmartScreen/Defender friction.
+
+Release checklist:
+
+1. Run `pnpm test`, `pnpm build`, and `cargo test --manifest-path apps/flow-link/src-tauri/Cargo.toml`.
+2. Build macOS with `FLOW_LINK_DEFAULT_WORKER_URL=wss://<worker-host> pnpm flow-link:desktop:build:mac`.
+3. Build Windows through the `Flow Link Desktop` GitHub Actions workflow or a Windows machine.
+4. Verify Worker publish/watch with `pnpm e2e:worker-publish wss://<worker-host>`.
+5. Publish the DMG/EXE/MSI and set `VITE_FLOW_LINK_MAC_DOWNLOAD_URL` / `VITE_FLOW_LINK_WINDOWS_DOWNLOAD_URL`.
 
 보안 경계:
 
-- Flow Link는 Claude/Codex 로그를 로컬에서 읽지만 Worker에는 원문 프롬프트/응답을 보내지 않는다.
+- Flow Link는 Claude/Codex/Pi 로그를 로컬에서 읽지만 Worker에는 원문 프롬프트/응답을 보내지 않는다.
 - 전송 payload는 익명 identity, source/provider/model, token delta/totals, energy, timestamp로 제한한다.
 - 네트워크 대상은 앱이 연결한 Worker URL 하나다.
 - 공유 중지는 tray/menu bar의 `Pause Sharing`으로 한다.

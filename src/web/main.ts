@@ -15,7 +15,7 @@ import {
 } from "./core-state.js";
 import { ParticleSystem } from "./particles.js";
 import { applySnapshotEvent, applyTurnEvent } from "./turn-events.js";
-import type { PeerMeta, TurnMessage, WorkerToBrowserMessage } from "../shared/protocol.js";
+import type { PeerMeta, PresenceSnapshotMessage, TurnMessage, WorkerToBrowserMessage } from "../shared/protocol.js";
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
@@ -29,6 +29,7 @@ let selfId = "";
 let isViewerOnly = false;
 let currentZoom = 1;
 let lastFrameAt = performance.now();
+const seenTurns = new Set<string>();
 
 function resize() {
   canvas.width = window.innerWidth;
@@ -100,10 +101,14 @@ function tick(now = performance.now()) {
 }
 
 function applyTurn(ownerId: string, event: TurnEvent | TurnMessage) {
+  const dedupKey = turnDedupKey(ownerId, event);
+  if (seenTurns.has(dedupKey)) return;
+  seenTurns.add(dedupKey);
+  if (seenTurns.size > 500) seenTurns.delete(seenTurns.values().next().value as string);
   applyTurnEvent(ownerId, event, { cores, particles, hud, selfId, viewport: viewport(), shouldUpdateHud });
 }
 
-function applySnapshot(ownerId: string, event: SnapshotEvent) {
+function applySnapshot(ownerId: string, event: SnapshotEvent | PresenceSnapshotMessage) {
   applySnapshotEvent(ownerId, event, { cores, hud, selfId, viewport: viewport(), shouldUpdateHud });
 }
 
@@ -113,14 +118,23 @@ function shouldUpdateHud(ownerId: string): boolean {
 
 function onWorkerMessage(message: WorkerToBrowserMessage) {
   if (message.kind === "roster") {
+    hud.updateViewerCount(message.viewerCount);
     updateRoster(message.peers);
     return;
   }
 
   if (message.kind === "turn") {
+    if (!isViewerOnly && message.userId === selfId) return;
     ensureCore({ id: message.userId, nickname: message.nickname, color: message.color });
     layoutCores();
     applyTurn(message.userId, message);
+    return;
+  }
+
+  if (message.kind === "snapshot") {
+    ensureCore({ id: message.userId, nickname: message.nickname, color: message.color });
+    layoutCores();
+    applySnapshot(message.userId, message);
   }
 }
 
@@ -168,3 +182,15 @@ async function boot() {
 }
 
 void boot();
+
+function turnDedupKey(ownerId: string, event: TurnEvent | TurnMessage): string {
+  return [
+    ownerId,
+    event.source,
+    event.model,
+    event.timestamp,
+    event.delta.inputTokens,
+    event.delta.outputTokens,
+    event.delta.cacheReadTokens,
+  ].join(":");
+}

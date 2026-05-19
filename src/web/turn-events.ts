@@ -1,8 +1,9 @@
-import { recordPlanetUse, resetPlanetUse, type CoreState, type ViewportSize } from "./core-state.js";
+import { applyPlanetState, recordPlanetUse, resetPlanetUse, type CoreState, type ViewportSize } from "./core-state.js";
 import { modelAccent, modelTrait, modelVisual, PLANET_META, type PlanetClass } from "./model-visuals.js";
 import type { ParticleSpawnOptions } from "./particles.js";
 import type { SnapshotEvent, TurnEvent } from "./stream-client.js";
-import type { TurnMessage } from "../shared/protocol.js";
+import type { PresenceSnapshotMessage, TurnMessage } from "../shared/protocol.js";
+import type { WirePlanetState } from "../shared/planet.js";
 
 interface HudLike {
   updateTurn(source: string, model: string, turns: number, outputTokens: number, energy: number, planetClass?: PlanetClass, mixLabel?: string): void;
@@ -40,14 +41,19 @@ export function applyTurnEvent(ownerId: string, event: TurnEvent | TurnMessage, 
   const planetClass = modelVisual(event.source, event.model, core.color).planetClass;
   const timestamp = deps.now?.() ?? Date.now();
   applyCoreEventState(core, event.energy, event.source, event.model, timestamp, trait);
-  recordPlanetUse(core, planetClass, Math.max(1, event.delta.outputTokens), timestamp);
+  const planetState = getPlanetState(event);
+  if (planetState) {
+    applyPlanetState(core, planetState);
+  } else {
+    recordPlanetUse(core, planetClass, Math.max(1, event.delta.outputTokens), timestamp);
+  }
   if (shouldUpdateHud(ownerId, deps)) {
     deps.hud.updateTurn(event.source, event.model, event.totals.turns, event.totals.outputTokens, core.targetEnergy, core.dominantPlanetClass, formatPlanetMix(core));
   }
   return true;
 }
 
-export function applySnapshotEvent(ownerId: string, event: SnapshotEvent, deps: Omit<TurnEventDeps, "particles">): boolean {
+export function applySnapshotEvent(ownerId: string, event: SnapshotEvent | PresenceSnapshotMessage, deps: Omit<TurnEventDeps, "particles">): boolean {
   const core = deps.cores.get(ownerId);
   if (!core) return false;
 
@@ -55,11 +61,20 @@ export function applySnapshotEvent(ownerId: string, event: SnapshotEvent, deps: 
   const planetClass = modelVisual(event.source, event.model, core.color).planetClass;
   const timestamp = deps.now?.() ?? Date.now();
   applyCoreEventState(core, event.energy, event.source, event.model, timestamp, trait);
-  resetPlanetUse(core, planetClass, Math.max(1, event.totals.outputTokens), timestamp);
+  const planetState = getPlanetState(event);
+  if (planetState) {
+    applyPlanetState(core, planetState);
+  } else {
+    resetPlanetUse(core, planetClass, Math.max(1, event.totals.outputTokens), timestamp);
+  }
   if (shouldUpdateHud(ownerId, deps)) {
     deps.hud.updateTurn(event.source, event.model, event.totals.turns, event.totals.outputTokens, core.targetEnergy, core.dominantPlanetClass, formatPlanetMix(core));
   }
   return true;
+}
+
+function getPlanetState(event: TurnEvent | TurnMessage | SnapshotEvent | PresenceSnapshotMessage): WirePlanetState | undefined {
+  return "planetState" in event ? event.planetState : undefined;
 }
 
 function shouldUpdateHud(ownerId: string, deps: Omit<TurnEventDeps, "particles">): boolean {

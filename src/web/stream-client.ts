@@ -1,4 +1,5 @@
 import { resolveBridgeUrl } from "./runtime-url.js";
+import type { WirePlanetState } from "../shared/planet.js";
 
 export interface TurnEvent {
   type: "turn";
@@ -26,6 +27,7 @@ export interface TurnEvent {
   };
   energy: number;
   timestamp: string;
+  planetState?: WirePlanetState;
 }
 
 export interface SnapshotEvent {
@@ -40,6 +42,8 @@ export interface SnapshotEvent {
     totalUsd: number;
   };
   energy: number;
+  timestamp?: string;
+  planetState?: WirePlanetState;
 }
 
 export type StreamEvent = TurnEvent | SnapshotEvent;

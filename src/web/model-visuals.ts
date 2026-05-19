@@ -1,3 +1,7 @@
+import { classifyPlanet, PLANET_META, type PlanetClass, type PlanetMeta } from "../shared/planet.js";
+
+export { PLANET_META, type PlanetClass, type PlanetMeta };
+
 export interface PlanetVariant {
   squashX: number;
   squashY: number;
@@ -34,47 +38,6 @@ export interface ModelTrait {
   growthScale: number;
 }
 
-export type PlanetClass = "nebula" | "forge" | "prism" | "grove" | "relay" | "drift";
-
-export interface PlanetMeta {
-  label: string;
-  role: string;
-  description: string;
-}
-
-export const PLANET_META: Record<PlanetClass, PlanetMeta> = {
-  nebula: {
-    label: "Nebula",
-    role: "stable",
-    description: "Slow, long-lived flow with a wider atmospheric feel.",
-  },
-  forge: {
-    label: "Forge",
-    role: "production",
-    description: "Dense bursts, faster growth, and focused energy intake.",
-  },
-  prism: {
-    label: "Prism",
-    role: "scatter",
-    description: "Wide particle spread with bright, refractive motion.",
-  },
-  grove: {
-    label: "Grove",
-    role: "support",
-    description: "Persistent flow that lingers and reinforces the field.",
-  },
-  relay: {
-    label: "Relay",
-    role: "connection",
-    description: "Fast, tightly pulled particles and a sharp signal path.",
-  },
-  drift: {
-    label: "Drift",
-    role: "neutral",
-    description: "Default behavior for unknown or idle model activity.",
-  },
-};
-
 const rgbCache = new Map<string, string>();
 const variantCache = new Map<string, PlanetVariant>();
 
@@ -93,6 +56,7 @@ export function modelAccent(source: string, model: string, fallback: string): st
 export function modelVisual(source: string, model: string, fallback: string): ModelVisual {
   const key = `${source} ${model}`.toLowerCase();
   const accentRgb = modelAccent(source, model, fallback);
+  const planetClass = classifyPlanet(source, model);
 
   if (key.includes("opus")) {
     return {
@@ -124,7 +88,7 @@ export function modelVisual(source: string, model: string, fallback: string): Mo
       spotAlpha: 1.25,
     };
   }
-  if (key.includes("sonnet") || key.includes("claude")) {
+  if (planetClass === "nebula") {
     return {
       accentRgb,
       bandAlpha: 0.18,
@@ -139,7 +103,7 @@ export function modelVisual(source: string, model: string, fallback: string): Mo
       spotAlpha: 1,
     };
   }
-  if (key.includes("copilot") || key.includes("github")) {
+  if (planetClass === "grove") {
     return {
       accentRgb,
       bandAlpha: 0.17,
@@ -154,7 +118,7 @@ export function modelVisual(source: string, model: string, fallback: string): Mo
       spotAlpha: 1.15,
     };
   }
-  if (key.includes("cursor") || key.includes("antigravity")) {
+  if (planetClass === "relay") {
     return {
       accentRgb,
       bandAlpha: 0.17,
@@ -169,7 +133,7 @@ export function modelVisual(source: string, model: string, fallback: string): Mo
       spotAlpha: 1.15,
     };
   }
-  if (key.includes("gpt") || key.includes("codex") || key.includes("openai")) {
+  if (planetClass === "forge") {
     return {
       accentRgb,
       bandAlpha: 0.2,
@@ -184,7 +148,7 @@ export function modelVisual(source: string, model: string, fallback: string): Mo
       spotAlpha: 0.8,
     };
   }
-  if (key.includes("gemini") || key.includes("google")) {
+  if (planetClass === "prism") {
     return {
       accentRgb,
       bandAlpha: 0.16,
@@ -216,7 +180,7 @@ export function modelVisual(source: string, model: string, fallback: string): Mo
 }
 
 export function modelTrait(source: string, model: string): ModelTrait {
-  const planetClass = modelVisual(source, model, "#c8c8c8").planetClass;
+  const planetClass = classifyPlanet(source, model);
   if (planetClass === "nebula") {
     return { particleBurst: 0.95, particleSpeed: 0.88, particleSpread: 1.25, particleLife: 1.28, particlePull: 0.92, energyYield: 1, auraScale: 1.18, growthScale: 0.96 };
   }

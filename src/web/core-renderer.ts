@@ -51,6 +51,11 @@ export class CoreRenderer {
     const variant = planetVariant(core.id, isSelf);
     const visual = this.resolveVisual(core, options.frameScale);
 
+    const activityAlpha = coreActivityAlpha(core, isSelf);
+
+    this.ctx.save();
+    this.ctx.globalAlpha *= activityAlpha;
+
     this.drawGlow(core, r, isSelf, visual);
 
     for (const [i, cfg] of RING_CFGS.entries()) {
@@ -102,6 +107,7 @@ export class CoreRenderer {
     this.ctx.fillStyle = "rgba(255,255,255,0.62)";
     this.ctx.textAlign = "center";
     this.ctx.fillText(isSelf ? "me" : core.nickname, core.x, core.y + r + 18);
+    this.ctx.restore();
   }
 
   private drawGlow(core: CoreState, r: number, isSelf: boolean, visual: ModelVisual): void {
@@ -496,4 +502,11 @@ export function displayCoreRadius(core: CoreState, isSelf: boolean, viewport: Vi
   const raw = rawCoreRadius(core, isSelf, includePulse);
   const cap = Math.min(viewport.width, viewport.height) * (isSelf ? 0.16 : 0.07);
   return Math.min(raw, cap);
+}
+
+export function coreActivityAlpha(core: CoreState, isSelf: boolean, now = Date.now()): number {
+  if (isSelf || core.lastTurnAt <= 0) return 1;
+  const idleMs = now - core.lastTurnAt;
+  if (idleMs <= 20_000) return 1;
+  return Math.max(0.42, 1 - (idleMs - 20_000) / 20_000);
 }

@@ -6,6 +6,7 @@ type HealthPayload = Record<string, HealthValue>;
 const SUMMARY_FIELDS = [
   "ok",
   "runtime",
+  "appVersion",
   "buildId",
   "sourceRoots",
   "sources",

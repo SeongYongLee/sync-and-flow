@@ -3,6 +3,7 @@ import { MultiSourceWatcher } from "../node/sources/multi-source-watcher.js";
 import { Aggregator } from "../core/aggregate.js";
 import { getBridgeIdentity } from "./identity.js";
 import { WorkerPublisher } from "./worker-publisher.js";
+import { classifyPlanet, recordPlanetStateUse, type WirePlanetState } from "../shared/planet.js";
 
 const PORT = Number(process.env["PORT"] ?? 3001);
 const WORKER_URL = process.env["SYNC_FLOW_WORKER_URL"] ?? "ws://localhost:8787";
@@ -25,6 +26,7 @@ const identity = await getBridgeIdentity();
 const publisher = new WorkerPublisher(WORKER_URL, identity);
 let lastModel = "";
 let lastSource = "";
+let planetState: WirePlanetState | undefined;
 
 publisher.start();
 
@@ -35,6 +37,8 @@ watcher.onTurn((turn) => {
   const totals = agg.getCombinedTotals();
   lastModel = turn.model;
   lastSource = turn.source;
+  const turnTime = Date.parse(turn.timestamp);
+  planetState = recordPlanetStateUse(planetState, classifyPlanet(turn.source, turn.model), turn.usage.output_tokens, Number.isFinite(turnTime) ? turnTime : Date.now());
 
   const event = {
     type: "turn",
@@ -62,6 +66,7 @@ watcher.onTurn((turn) => {
     },
     energy: agg.calcFlowEnergy(totals),
     timestamp: turn.timestamp,
+    planetState,
   };
 
   broadcast(event);
@@ -103,6 +108,7 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
           totalUsd: combined.totalUsd,
         },
         energy: agg.calcFlowEnergy(combined),
+        planetState,
       };
       res.write(`data: ${JSON.stringify(snapshot)}\n\n`);
     }

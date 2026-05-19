@@ -24,6 +24,30 @@ try {
   await page.waitForSelector("#canvas", { timeout: 5_000 });
   await page.waitForTimeout(1_000);
 
+  if (process.env.DEMO_PLANETS === "1") {
+    const workerUrl = new URL(url).searchParams.get("worker") ?? "ws://127.0.0.1:8787";
+    const publishUrl = `${workerUrl.replace(/^ws:/, "http:").replace(/^wss:/, "https:").replace(/\/$/, "")}/publish`;
+    const res = await fetch(publishUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "publish",
+        userId: "smoke-demo",
+        nickname: "Smoke Demo",
+        color: "#80b4ff",
+        source: "codex",
+        provider: "openai",
+        model: "gpt-5-codex",
+        delta: { inputTokens: 10, outputTokens: 90, cacheReadTokens: 0 },
+        totals: { inputTokens: 10, outputTokens: 90, cacheReadTokens: 0, turns: 1, totalUsd: 0 },
+        energy: 90,
+        timestamp: new Date().toISOString(),
+      }),
+    });
+    if (!res.ok) throw new Error(`demo publish failed: HTTP ${res.status}`);
+    await page.waitForFunction(() => document.querySelector("#planet")?.textContent?.includes("Forge"), null, { timeout: 8_000 });
+  }
+
   const canvasStats = await page.locator("#canvas").evaluate((canvas) => {
     if (!(canvas instanceof HTMLCanvasElement)) throw new Error("#canvas is not a canvas");
     const ctx = canvas.getContext("2d");
@@ -71,6 +95,9 @@ try {
   }
   if (!planet.trim() || !mix.trim()) {
     throw new Error(`planet HUD did not render: planet=${planet}, mix=${mix}`);
+  }
+  if (process.env.DEMO_PLANETS === "1" && !planet.includes("Forge")) {
+    throw new Error(`expected demo planet Forge, got: ${planet}`);
   }
 
   await page.setViewportSize({ width: 390, height: 844 });

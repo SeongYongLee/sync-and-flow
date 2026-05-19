@@ -1,4 +1,5 @@
 import type { Provider, SourceId } from "../core/types.js";
+import type { WirePlanetState } from "./planet.js";
 
 export interface TurnDelta {
   outputTokens: number;
@@ -33,6 +34,7 @@ export interface PublishMessage {
   totals: WireTotals;
   energy: number;
   timestamp: string;
+  planetState?: WirePlanetState;
 }
 
 export interface SubscribeMessage {
@@ -53,10 +55,15 @@ export interface RosterMessage {
   kind: "roster";
   viewerId: string;
   peers: PeerMeta[];
+  viewerCount: number;
 }
 
 export interface TurnMessage extends Omit<PublishMessage, "kind"> {
   kind: "turn";
+}
+
+export interface PresenceSnapshotMessage extends Omit<TurnMessage, "kind" | "delta"> {
+  kind: "snapshot";
 }
 
 export interface StatusMessage {
@@ -65,4 +72,4 @@ export interface StatusMessage {
 }
 
 export type ClientToWorkerMessage = PublishMessage | SubscribeMessage | PingMessage;
-export type WorkerToBrowserMessage = RosterMessage | TurnMessage | StatusMessage;
+export type WorkerToBrowserMessage = RosterMessage | TurnMessage | PresenceSnapshotMessage | StatusMessage;

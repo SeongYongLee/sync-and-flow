@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayCoreRadius, rawCoreRadius, updateCoreMotion, visualMorphStep, visualTurnIntensity } from "../src/web/core-renderer.js";
+import { coreActivityAlpha, displayCoreRadius, rawCoreRadius, updateCoreMotion, visualMorphStep, visualTurnIntensity } from "../src/web/core-renderer.js";
 import type { CoreState } from "../src/web/core-state.js";
 
 function core(overrides: Partial<CoreState> = {}): CoreState {
@@ -73,5 +73,13 @@ describe("core renderer helpers", () => {
     const state = core({ energy: 10, targetEnergy: 120, lastTurnAt: now });
 
     expect(visualTurnIntensity(state, now + 1_000)).toBeGreaterThan(visualTurnIntensity(state, now + 12_000));
+  });
+
+  it("dims stale peer cores without dimming self", () => {
+    const now = 100_000;
+    const state = core({ lastTurnAt: now - 50_000 });
+
+    expect(coreActivityAlpha(state, false, now)).toBeLessThan(1);
+    expect(coreActivityAlpha(state, true, now)).toBe(1);
   });
 });

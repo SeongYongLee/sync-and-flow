@@ -22,11 +22,12 @@
     "demo:planets": "node scripts/demo-planet-events.mjs",
     "smoke:web": "node scripts/smoke-web.mjs",
     "smoke:web:worker": "REQUIRE_WORKER=1 node scripts/smoke-web.mjs",
+    "smoke:sync": "node scripts/smoke-sync-two-viewers.mjs",
     "flow-link:desktop:dev": "pnpm --dir apps/flow-link dev",
     "flow-link:desktop:build": "pnpm flow-link:desktop:build:app",
     "flow-link:desktop:build:app": "pnpm --dir apps/flow-link exec tauri build --bundles app",
     "flow-link:desktop:build:mac": "node scripts/build-flow-link-dmg.mjs",
-    "flow-link:desktop:build:windows": "pnpm --dir apps/flow-link exec tauri build --bundles nsis,msi"
+    "flow-link:desktop:build:windows": "node scripts/build-flow-link-windows.mjs"
   },
   "dependencies": {
     "chokidar": "^4.0.3",

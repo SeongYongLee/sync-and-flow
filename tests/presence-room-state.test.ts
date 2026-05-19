@@ -128,6 +128,48 @@ describe("PresenceRoomState", () => {
     });
   });
 
+  it("keeps multiple viewers with the same user id in sync", () => {
+    const state = new PresenceRoomState();
+    const app = new FakeSocket();
+    const web = new FakeSocket();
+    const peer = new FakeSocket();
+
+    state.subscribe(app, subscribe("me"));
+    state.subscribe(web, subscribe("me"));
+    state.subscribe(peer, subscribe("peer"));
+    state.publish(null, publish("peer", 44));
+
+    expect(app.messages.some((message) => message.kind === "turn" && message.userId === "peer")).toBe(true);
+    expect(web.messages.some((message) => message.kind === "turn" && message.userId === "peer")).toBe(true);
+  });
+
+  it("replays the latest visible snapshot to late subscribers", () => {
+    const state = new PresenceRoomState();
+    const app = new FakeSocket();
+    const web = new FakeSocket();
+
+    state.subscribe(app, subscribe("me"));
+    state.publish(null, publish("me", 55));
+    state.subscribe(web, subscribe("me"));
+
+    expect(web.messages.some((message) => message.kind === "snapshot" && message.userId === "me" && message.totals.outputTokens === 55)).toBe(true);
+  });
+
+  it("attaches authoritative planet state to turns and snapshots", () => {
+    const state = new PresenceRoomState();
+    const me = new FakeSocket();
+    const web = new FakeSocket();
+
+    state.subscribe(me, subscribe("me"));
+    state.publish(null, publish("peer", 72));
+    const turn = me.messages.find((message) => message.kind === "turn" && message.userId === "peer");
+    expect(turn).toMatchObject({ planetState: { dominant: "forge", mix: { forge: 1 } } });
+
+    state.subscribe(web, subscribe("me"));
+    const snapshot = web.messages.find((message) => message.kind === "snapshot" && message.userId === "peer");
+    expect(snapshot).toMatchObject({ planetState: { dominant: "forge", mix: { forge: 1 } } });
+  });
+
   it("prunes stale users from subsequent rosters", () => {
     let now = 1_000;
     const state = new PresenceRoomState(() => now);
