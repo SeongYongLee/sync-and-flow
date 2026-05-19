@@ -33,6 +33,7 @@ reference: `getagentseal/codeburn`. Phase 2 단계에서는 Claude 만 실 구�
 |---|---|---|---|
 | Claude Code | `~/.claude/projects/{cwd-encoded}/*.jsonl` | **JSONL tail** | Phase 1 에서 검증 완료 |
 | Codex (OpenAI) | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` | **JSONL tail** | `event_msg.type=token_count` 의 `info.last_token_usage`. cached → input 빼기 |
+| Pi | `~/.pi/agent/sessions/**/*.jsonl` | **JSONL tail** | Flow Link 앱 내부 native bridge에서 명시 루트만 감시. `PI_CODING_AGENT_DIR`, `PI_CODING_AGENT_SESSION_DIR` 지원 |
 | cursor-agent | `~/.cursor/projects/` | **JSONL tail** (추정) | codeburn 의 `providers/cursor-agent.ts` 참조 필요 |
 | Gemini CLI | `~/.gemini/tmp/<project>/chats/` | **JSON/JSONL** (조사 필요) | `<project>` 디렉토리 동적, watcher glob 필요 |
 | Antigravity | `~/.gemini/antigravity/conversations/` | **JSON snapshot** (추정) | 디렉토리 내 JSON 파일들의 변경 감지 |

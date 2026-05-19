@@ -2,6 +2,10 @@
 
 > AI 응답 대기 시간을 게임 자원으로 전환하는 멀티디바이스 게임. PoC 단계의 산출물은 코드가 아니라 **결정 문서**다.
 
+## AI 작업 인계
+
+AI 세션을 재개할 때는 먼저 [AGENTS.md](/Users/iseong-yong/Desktop/code/personal/sync-and-flow/AGENTS.md)를 읽고, 거기에 적힌 Obsidian 프로젝트 문서를 확인한다. 최신 아키텍처, 운영 절차, 진행 중 변경사항은 Obsidian Vault의 `Projects/Sync and Flow/00_Index.md`에서 관리한다.
+
 ---
 
 ## 검증 결과 요약
@@ -99,7 +103,16 @@ pnpm cli --cwd /your/project          # 라이브 모니터링
 
 ## Phase 2 로컬 멀티코어 실행
 
-Flow Link 데스크톱 앱은 자체 Tauri native bridge를 띄워 로컬 Claude/Codex 활동을 읽는다. 사용자는 별도 백그라운드 프로세스를 실행하지 않는다.
+Flow Link 데스크톱 앱은 자체 Tauri native bridge를 띄워 로컬 Claude Code, Codex CLI, Pi 활동을 읽는다. 사용자는 별도 백그라운드 프로세스나 다운로드 스크립트를 실행하지 않는다.
+
+지원하는 로컬 로그 루트는 명시적으로 제한한다.
+
+- Claude Code: `~/.claude/projects`
+- Codex CLI: `~/.codex/sessions`
+- Pi: `~/.pi/agent/sessions`
+
+Pi는 `PI_CODING_AGENT_DIR` 또는 `PI_CODING_AGENT_SESSION_DIR` 환경 변수가 설정되어 있으면 그 경로를 따른다. `~/Library/Application Support` 같은 넓은 시스템 폴더는 자동 스캔하지 않는다.
+Pi 로그는 `type: "message"` assistant entry의 `message.usage.input/output/cacheRead` 형식과 Claude/Codex 호환 usage 형식을 모두 turn으로 처리한다.
 
 개발 중 단독 데스크톱 앱을 확인하려면:
 
@@ -129,7 +142,7 @@ pnpm dev:phase2
 # Worker와 Flow Link 앱을 띄우는 Mac
 VITE_SYNC_FLOW_WORKER_URL=ws://<worker-lan-ip>:8787 pnpm dev:phase2:lan
 
-# Claude/Codex 활동을 publish할 Mac마다 Flow Link 앱 실행
+# Claude/Codex/Pi 활동을 publish할 Mac마다 Flow Link 앱 실행
 VITE_SYNC_FLOW_WORKER_URL=ws://<worker-lan-ip>:8787 pnpm flow-link:desktop:dev
 
 # browser-only viewer Mac
@@ -138,7 +151,7 @@ http://<worker-lan-ip>:5175
 
 ### 모바일/다른 Mac 관전 E2E 체크리스트
 
-목표는 **한 Mac의 Flow Link 앱이 Claude/Codex turn을 Worker에 publish하고, 모바일 또는 다른 Mac 브라우저가 viewer-only로 그 turn을 보는 것**이다. viewer-only 기기에는 Flow Link 앱을 설치하거나 실행하지 않아도 된다.
+목표는 **한 Mac의 Flow Link 앱이 Claude/Codex/Pi turn을 Worker에 publish하고, 모바일 또는 다른 Mac 브라우저가 viewer-only로 그 turn을 보는 것**이다. viewer-only 기기에는 Flow Link 앱을 설치하거나 실행하지 않아도 된다.
 
 1. Worker와 웹 서버를 LAN으로 연다.
 
@@ -167,13 +180,13 @@ http://<worker-lan-ip>:5175/?worker=ws://<worker-lan-ip>:8787
 
 4. 모바일은 데스크톱 화면의 `MOBILE QR` 버튼을 사용할 수 있다. Tauri 앱에서 처음 누르면 `Mac LAN IP` 입력란이 보이고, 여기에 `<worker-lan-ip>`를 넣으면 위 viewer URL이 QR로 생성된다.
 
-5. 공유 Mac에서 Claude 또는 Codex turn을 하나 발생시킨다. viewer 화면에서 roster가 잡히고 turn 이벤트가 들어오면 다른 코어에 입자 변화가 보여야 한다.
+5. 공유 Mac에서 Claude, Codex, 또는 Pi turn을 하나 발생시킨다. viewer 화면에서 roster가 잡히고 turn 이벤트가 들어오면 다른 코어에 입자 변화가 보여야 한다.
 
 검증 포인트:
 
 - Worker health: `http://<worker-lan-ip>:8787/health`가 `{"ok":true,"service":"sync-and-flow-worker"}`를 반환해야 한다.
 - 웹 접속: 다른 Mac/모바일에서 `http://<worker-lan-ip>:5175/`가 열려야 한다. 연결 거부면 `pnpm dev:desktop-web` 또는 `pnpm dev:phase2:lan`이 LAN host로 떠 있지 않은 상태다.
-- publish 상태: Flow Link 메뉴바 `Diagnostics`에서 `workerUrl`이 `ws://<worker-lan-ip>:8787`이고, turn 이후 `lastWorkerPublishAt`이 채워져야 한다.
+- publish 상태: Flow Link 메뉴바 `Diagnostics`에서 `scanRoots`가 `~/.claude/projects`, `~/.codex/sessions`, `~/.pi/agent/sessions`를 표시해야 한다. `sourceRoots`에서 사용하는 source의 `root/logDir`가 `ok`이고, turn 이후 `lastWorkerPublishAt`이 채워져야 한다.
 - publish 실패: `lastWorkerError`가 있으면 Worker URL, 방화벽, 같은 Wi-Fi 여부, VPN/프라이빗 릴레이를 먼저 확인한다.
 - viewer-only 한계: 모바일/다른 Mac 브라우저만 연 경우 그 기기의 Claude/Codex 활동은 publish되지 않는다. 해당 기기의 활동도 공유하려면 그 기기에도 Flow Link 앱이 필요하다.
 
