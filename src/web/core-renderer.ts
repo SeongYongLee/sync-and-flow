@@ -24,6 +24,8 @@ export interface CoreRenderOptions {
 interface RenderVisual extends ModelVisual {
   fromPlanetClass: PlanetClass;
   morphProgress: number;
+  secondaryPlanetClass: PlanetClass | null;
+  secondaryAlpha: number;
 }
 
 interface VisualMorphState {
@@ -103,11 +105,12 @@ export class CoreRenderer {
   }
 
   private drawGlow(core: CoreState, r: number, isSelf: boolean, visual: ModelVisual): void {
-    const glow = this.ctx.createRadialGradient(core.x, core.y, r * 0.4, core.x, core.y, r * 2.8);
+    const auraScale = core.auraScale ?? 1;
+    const glow = this.ctx.createRadialGradient(core.x, core.y, r * 0.4, core.x, core.y, r * 2.8 * auraScale);
     glow.addColorStop(0, `rgba(${visual.accentRgb}, ${(isSelf ? 0.2 : 0.14) * visual.glowAlpha})`);
     glow.addColorStop(1, `rgba(${visual.accentRgb}, 0)`);
     this.ctx.beginPath();
-    this.ctx.arc(core.x, core.y, r * 2.8, 0, Math.PI * 2);
+    this.ctx.arc(core.x, core.y, r * 2.8 * auraScale, 0, Math.PI * 2);
     this.ctx.fillStyle = glow;
     this.ctx.fill();
   }
@@ -237,6 +240,13 @@ export class CoreRenderer {
     this.ctx.globalAlpha *= visual.fromPlanetClass === visual.planetClass ? 1 : visual.morphProgress;
     this.drawClassDetails(visual.planetClass, r, noisePhase, isSelf, variant, visual);
     this.ctx.restore();
+
+    if (visual.secondaryPlanetClass && visual.secondaryPlanetClass !== visual.planetClass && visual.secondaryAlpha > 0.04) {
+      this.ctx.save();
+      this.ctx.globalAlpha *= visual.secondaryAlpha;
+      this.drawClassDetails(visual.secondaryPlanetClass, r, noisePhase + 1.7, isSelf, variant, visual);
+      this.ctx.restore();
+    }
   }
 
   private drawClassDetails(
@@ -386,6 +396,8 @@ export class CoreRenderer {
       planetClass: state.target.planetClass,
       ringCount: state.progress < 1 ? Math.max(state.from.ringCount, state.target.ringCount) as 1 | 2 : state.target.ringCount,
       morphProgress: smoothStep(state.progress),
+      secondaryPlanetClass: core.secondaryPlanetClass,
+      secondaryAlpha: Math.min((core.secondaryPlanetClass ? core.planetMix[core.secondaryPlanetClass] ?? 0 : 0) * 0.55, 0.34),
     };
   }
 }
@@ -475,7 +487,7 @@ export function updateCoreMotion(core: CoreState, frameScale: number): void {
 
 export function rawCoreRadius(core: CoreState, isSelf: boolean, includePulse = true): number {
   const base = isSelf ? 25 : 14;
-  const growth = Math.sqrt(Math.max(0, core.energy)) * (isSelf ? 0.55 : 0.28);
+  const growth = Math.sqrt(Math.max(0, core.energy)) * (isSelf ? 0.55 : 0.28) * (core.growthScale ?? 1);
   const pulse = includePulse ? Math.sin(core.pulse) * 2 : 0;
   return base + growth + pulse;
 }

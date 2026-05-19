@@ -351,7 +351,7 @@ viewers:     Map<viewerId, { ws, visiblePeers: Set<userId> }>
 | 항목 | 추가 |
 |---|---|
 | 패키지 | `ws` (node), `wrangler` (devDep), `@cloudflare/workers-types` (devDep) |
-| script | `"dev:worker": "wrangler dev --local"`, `"dev:phase2": "concurrently \"pnpm dev:worker\" \"pnpm dev:server\" \"pnpm dev\""` |
+| script | `"dev:worker": "wrangler dev --local"`, `"dev:desktop-web": "vite --host 0.0.0.0 --port 5175 --strictPort"`, `"dev:phase2": "concurrently \"pnpm dev:worker\" \"pnpm dev:desktop-web\" \"pnpm flow-link:desktop:dev\""` |
 | wrangler.toml | `compatibility_date`, `[[durable_objects.bindings]]` PresenceRoom, `[durable_objects.migrations]` |
 
 ---
@@ -386,7 +386,7 @@ viewers:     Map<viewerId, { ws, visiblePeers: Set<userId> }>
 
 1. `pnpm test` — Phase 1 의 25 개 테스트 통과 + Codex 어댑터 단위 테스트 (parse/dedup/normalize/pricing 각 1 개 이상) 통과 + 6 개 stub 어댑터 placeholder 통과.
 2. `pnpm replay <claude jsonl>` 그리고 `pnpm replay --source codex <codex jsonl>` 둘 다 통과. parse error 0, 고유 turn 수 일관, 토큰/비용 ccusage 또는 codeburn 결과와 1% 이내 일치.
-3. `pnpm dev:phase2` 실행 → 3개 프로세스(Worker / SSE bridge / Vite) 정상 부팅. 콘솔에 `[bridge] active sources: claude, codex` (사용자 환경에 둘 다 있을 때).
+3. `pnpm dev:phase2` 실행 → 3개 프로세스(Worker / Vite / Flow Link Tauri app) 정상 부팅. Diagnostics 에서 active source 와 Worker publish 상태 확인.
 4. 브라우저에서 `localhost:5173` 접속 → identity 자동 생성, 코어 1개(자기) 표시
 5. 다른 탭(시크릿/다른 브라우저)에서 같은 URL 접속 → 자동 생성된 다른 identity, 첫 탭 화면에 새 코어 등장
 6. **Claude 세션 진행** → 두 탭 모두에서 입자 효과 발생 (turn event 의 `source` 필드 = `"claude"`)
@@ -432,26 +432,26 @@ viewers:     Map<viewerId, { ws, visiblePeers: Set<userId> }>
 - 고정 `3001` 포트는 제거했고, 앱 실행 시마다 `127.0.0.1:<random>` 포트와 세션 토큰을 생성한다.
 - `/identity`, `/health`, `/events`는 토큰이 없으면 `401 Unauthorized`로 차단한다.
 - CORS는 `*`가 아니라 Tauri/dev origin만 허용한다. 허용되지 않은 Origin은 `403 Forbidden`.
-- Rust native bridge는 Claude/Codex JSONL을 스캔하고 로컬 웹뷰에는 SSE로 turn 이벤트를 전달한다.
+- Rust native bridge는 Claude/Codex/Pi JSONL을 스캔하고 로컬 웹뷰에는 bridge event stream으로 turn 이벤트를 전달한다.
 - Rust native bridge의 Claude/Codex 파서와 source path 판정 로직은 `native_bridge.rs`로 분리되어 단위 테스트로 검증된다.
 - Worker `/publish`는 WebSocket 외에 HTTP `POST /publish`도 수용한다.
 - Rust native bridge는 turn 이벤트 발생 시 Worker에도 HTTP publish를 시도한다. `ws://`는 `http://`, `wss://`는 `https://` publish endpoint로 변환한다.
 - Worker publish 실패는 로컬 SSE 동작을 막지 않는다.
-- Diagnostics 패널이 추가되어 `watchedFiles`, `lastEventAt`, `lastFile`, `workerUrl`, `lastWorkerPublishAt`, `lastWorkerError` 등을 확인할 수 있다.
+- Diagnostics 패널이 기본 상태와 Advanced 상태로 분리되어 source root, read/parse, Worker publish 상태를 먼저 보여주고 파일 상세 정보는 접어 둔다.
 - Rust native Worker publish는 `reqwest` + `rustls` 기반 TLS HTTP publish를 지원한다.
 - Worker publish E2E 스크립트가 추가되었다: `pnpm e2e:worker-publish [worker-url]`.
 - 로컬 Worker E2E 검증 통과: `pnpm dev:worker` 실행 후 `pnpm e2e:worker-publish ws://127.0.0.1:8787`에서 HTTP `POST /publish` → WebSocket `/watch` turn broadcast 확인.
 - 메뉴바 `Pause Sharing`은 native bridge를 중지하고 웹뷰를 `bridgePaused=1` 상태로 reload한다. `Start Sharing`은 새 랜덤 포트/토큰으로 bridge를 시작하고 웹뷰 URL을 새 bridge config로 replace한다.
 - 우측 상단 `DIAGNOSTICS` 버튼은 개발 모드의 Tauri 런타임에서만 표시된다. 운영에서는 메뉴바 `Diagnostics` 항목 또는 `#diagnostics` 진입으로만 패널을 연다.
 - 모바일/다른 Mac 관전 E2E 절차가 `README.md`에 문서화되었다. viewer-only 기기는 브라우저만 열고, 자기 활동을 publish하려는 기기만 Flow Link 앱을 실행한다.
-- 최근 검증: `cargo test`, `cargo check`, `pnpm build`, `pnpm test` 통과.
+- 최근 검증: `cargo test`, `cargo check`, `pnpm build`, `pnpm test`, DMG build/verify 통과.
 
 ---
 
 ## Next Steps
 
 1. 배포 Worker publish E2E 검증: 실제 `https/wss` Worker URL에서 `pnpm e2e:worker-publish wss://<deployed-worker>`를 실행해 publish/watch 경로를 확인한다.
-2. 운영 빌드/설치 플로우 정리: Tauri `.app/.dmg` 산출물, 다운로드 문구, 설치 후 첫 실행 안내, 삭제 플로우를 문서화한다.
+2. Windows 설치 파일 생성 및 서명 플로우를 macOS DMG와 같은 다운로드 UX에 연결한다.
 
 ---
 

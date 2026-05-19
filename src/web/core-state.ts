@@ -1,4 +1,5 @@
 import type { PeerMeta } from "../shared/protocol.js";
+import type { PlanetClass } from "./model-visuals.js";
 
 export interface ViewportSize {
   width: number;
@@ -21,7 +22,22 @@ export interface CoreState {
   ringAngles: [number, number];
   lastSource: string;
   lastModel: string;
+  planetHistory: PlanetUse[];
+  planetMix: Partial<Record<PlanetClass, number>>;
+  dominantPlanetClass: PlanetClass;
+  secondaryPlanetClass: PlanetClass | null;
+  auraScale: number;
+  growthScale: number;
+  resourceBoost: number;
 }
+
+export interface PlanetUse {
+  planetClass: PlanetClass;
+  weight: number;
+  timestamp: number;
+}
+
+const MAX_PLANET_HISTORY = 10;
 
 export function ensureCore(
   cores: Map<string, CoreState>,
@@ -49,12 +65,57 @@ export function ensureCore(
       ringAngles: [random() * Math.PI * 2, random() * Math.PI * 2],
       lastSource: "",
       lastModel: "",
+      planetHistory: [],
+      planetMix: { drift: 1 },
+      dominantPlanetClass: "drift",
+      secondaryPlanetClass: null,
+      auraScale: 1,
+      growthScale: 1,
+      resourceBoost: 1,
     };
     cores.set(peer.id, core);
   }
   core.nickname = peer.nickname;
   core.color = peer.color;
   return core;
+}
+
+export function recordPlanetUse(core: CoreState, planetClass: PlanetClass, weight: number, timestamp: number): void {
+  const boundedWeight = Math.max(1, Math.min(weight, 10_000));
+  core.planetHistory.push({ planetClass, weight: boundedWeight, timestamp });
+  if (core.planetHistory.length > MAX_PLANET_HISTORY) {
+    core.planetHistory.splice(0, core.planetHistory.length - MAX_PLANET_HISTORY);
+  }
+  summarizePlanetHistory(core);
+}
+
+export function resetPlanetUse(core: CoreState, planetClass: PlanetClass, weight: number, timestamp: number): void {
+  core.planetHistory = [{ planetClass, weight: Math.max(1, weight), timestamp }];
+  summarizePlanetHistory(core);
+}
+
+function summarizePlanetHistory(core: CoreState): void {
+  const totals: Partial<Record<PlanetClass, number>> = {};
+  let totalWeight = 0;
+  for (const item of core.planetHistory) {
+    totals[item.planetClass] = (totals[item.planetClass] ?? 0) + item.weight;
+    totalWeight += item.weight;
+  }
+
+  if (totalWeight <= 0) {
+    core.planetMix = { drift: 1 };
+    core.dominantPlanetClass = "drift";
+    core.secondaryPlanetClass = null;
+    return;
+  }
+
+  const entries = Object.entries(totals)
+    .map(([planetClass, weight]) => [planetClass as PlanetClass, weight / totalWeight] as const)
+    .sort((a, b) => b[1] - a[1]);
+
+  core.planetMix = Object.fromEntries(entries) as Partial<Record<PlanetClass, number>>;
+  core.dominantPlanetClass = entries[0]?.[0] ?? "drift";
+  core.secondaryPlanetClass = entries[1]?.[0] ?? null;
 }
 
 export function layoutCores(cores: Map<string, CoreState>, selfId: string, viewport: ViewportSize): void {

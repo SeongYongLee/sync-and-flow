@@ -20,6 +20,13 @@ function core(id: string): CoreState {
     ringAngles: [0, 0],
     lastSource: "",
     lastModel: "",
+    planetHistory: [],
+    planetMix: { drift: 1 },
+    dominantPlanetClass: "drift",
+    secondaryPlanetClass: null,
+    auraScale: 1,
+    growthScale: 1,
+    resourceBoost: 1,
   };
 }
 
@@ -69,16 +76,17 @@ describe("turn event application", () => {
 
     expect(applied).toBe(true);
     expect(cores.get("me")).toMatchObject({
-      targetEnergy: 99,
+      targetEnergy: 106.92,
       lastTurnAt: 1234,
       lastSource: "codex",
       lastModel: "gpt-5-codex",
+      dominantPlanetClass: "forge",
     });
     expect(particles.calls[0]?.[1]).toBe(13);
     expect(particles.calls[0]?.[3]).toEqual({ width: 800, height: 600 });
     expect(particles.calls[0]?.[4]).toBe(true);
     expect(particles.calls[0]?.[5]).toMatchObject({ speed: 1.18, spread: 0.82, life: 0.9, pull: 1.06 });
-    expect(hud.calls).toEqual([["codex", "gpt-5-codex", 3, 61, 99]]);
+    expect(hud.calls).toEqual([["codex", "gpt-5-codex", 3, 61, 106.92, "forge", "Forge 100%"]]);
   });
 
   it("does not update HUD for peer turns", () => {
@@ -115,7 +123,7 @@ describe("turn event application", () => {
         shouldUpdateHud: () => true,
       }),
     ).toBe(true);
-    expect(hud.calls).toEqual([["codex", "gpt-5-codex", 3, 61, 99]]);
+    expect(hud.calls).toEqual([["codex", "gpt-5-codex", 3, 61, 106.92, "forge", "Forge 100%"]]);
   });
 
   it("applies snapshots without spawning particles", () => {
@@ -133,8 +141,9 @@ describe("turn event application", () => {
       lastTurnAt: 5678,
       lastSource: "claude",
       lastModel: "claude-sonnet-4-6",
+      dominantPlanetClass: "nebula",
     });
-    expect(hud.calls).toEqual([["claude", "claude-sonnet-4-6", 2, 20, 20.5]]);
+    expect(hud.calls).toEqual([["claude", "claude-sonnet-4-6", 2, 20, 20.5, "nebula", "Nebula 100%"]]);
   });
 
   it("returns false when the owner core is missing", () => {

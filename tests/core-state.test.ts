@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ensureCore, layoutCores, reconcileRoster, type CoreState } from "../src/web/core-state.js";
+import { ensureCore, layoutCores, reconcileRoster, recordPlanetUse, type CoreState } from "../src/web/core-state.js";
 import type { PeerMeta } from "../src/shared/protocol.js";
 
 const viewport = { width: 800, height: 600 };
@@ -22,6 +22,9 @@ describe("core state", () => {
       pulse: 0,
       noisePhase: 0,
       ringAngles: [0, 0],
+      dominantPlanetClass: "drift",
+      secondaryPlanetClass: null,
+      planetMix: { drift: 1 },
     });
   });
 
@@ -54,5 +57,18 @@ describe("core state", () => {
     reconcileRoster(cores, "me", [peer("new")], viewport);
 
     expect([...cores.keys()].sort()).toEqual(["me", "new"]);
+  });
+
+  it("tracks a bounded recent planet mix", () => {
+    const cores = new Map<string, CoreState>();
+    const state = ensureCore(cores, peer("me"), viewport, () => 0);
+
+    recordPlanetUse(state, "forge", 70, 1);
+    recordPlanetUse(state, "nebula", 30, 2);
+
+    expect(state.dominantPlanetClass).toBe("forge");
+    expect(state.secondaryPlanetClass).toBe("nebula");
+    expect(state.planetMix.forge).toBeCloseTo(0.7);
+    expect(state.planetMix.nebula).toBeCloseTo(0.3);
   });
 });

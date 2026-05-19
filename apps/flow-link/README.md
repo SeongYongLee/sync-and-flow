@@ -6,7 +6,7 @@ Tauri desktop app for Flow Link.
 
 - Reuse the existing Sync and Flow web UI as the desktop window.
 - Provide a path toward a cross-platform tray/menu bar app.
-- Own the local bridge that reads Claude/Codex token logs and serves local SSE events to the UI.
+- Own the local bridge that reads Claude/Codex/Pi token logs and serves local events to the UI.
 
 ## Current State
 
@@ -18,7 +18,7 @@ Implemented shell behavior:
 - Tray/menu bar item remains available.
 - Tray menu includes `Open Flow Link`, `Pause Sharing`, `Privacy: What is shared?`, and `Quit Flow Link`.
 - `Start Sharing` and `Pause Sharing` control the Tauri-owned local bridge.
-- The native bridge scans local Claude and Codex session logs and publishes token deltas without sending prompts or responses.
+- The native bridge scans local Claude, Codex, and Pi session logs and publishes token deltas without sending prompts or responses.
 
 ## Requirements
 
@@ -41,10 +41,10 @@ The browser viewer exposes OS-specific download links when it is running without
 
 ```text
 VITE_FLOW_LINK_MAC_DOWNLOAD_URL      # default: /downloads/Flow-Link.dmg
-VITE_FLOW_LINK_WINDOWS_DOWNLOAD_URL  # default: /downloads/Flow-Link-Setup.exe
+VITE_FLOW_LINK_WINDOWS_DOWNLOAD_URL  # hidden until configured
 ```
 
-The downloaded artifact should install the desktop app, not a separate bridge helper. The desktop app starts and stops the native bridge itself.
+The downloaded artifact should install the desktop app, not a separate bridge helper or script. The desktop app starts and stops the native bridge itself.
 
 Expected release artifacts:
 

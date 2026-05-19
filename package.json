@@ -19,6 +19,7 @@
     "dev:phase2": "concurrently -n worker,web,app \"pnpm dev:worker\" \"pnpm dev:desktop-web\" \"pnpm flow-link:desktop:dev\"",
     "e2e:worker-publish": "node scripts/e2e-worker-publish.mjs",
     "e2e:worker-publish:alt": "node scripts/e2e-worker-publish.mjs ws://127.0.0.1:8788",
+    "demo:planets": "node scripts/demo-planet-events.mjs",
     "smoke:web": "node scripts/smoke-web.mjs",
     "smoke:web:worker": "REQUIRE_WORKER=1 node scripts/smoke-web.mjs",
     "flow-link:desktop:dev": "pnpm --dir apps/flow-link dev",

@@ -17,8 +17,8 @@ export function setupFlowLinkPrompt(mode: "local-bridge" | "browser-only") {
 
   card.removeAttribute("hidden");
   worker.textContent = resolveWorkerUrl();
-  setupDownloadLink(macDownload, "mac");
-  setupDownloadLink(windowsDownload, "windows");
+  setupDownloadLink(macDownload, "mac", { fallback: "/downloads/Flow-Link.dmg" });
+  setupDownloadLink(windowsDownload, "windows", { fallback: null });
   markRecommendedDownload(detectPlatform());
 
   install?.addEventListener("click", () => modal.removeAttribute("hidden"));
@@ -28,11 +28,20 @@ export function setupFlowLinkPrompt(mode: "local-bridge" | "browser-only") {
 
 type FlowLinkPlatform = "mac" | "windows" | "unknown";
 
-function setupDownloadLink(link: HTMLAnchorElement | null, platform: Exclude<FlowLinkPlatform, "unknown">) {
+function setupDownloadLink(
+  link: HTMLAnchorElement | null,
+  platform: Exclude<FlowLinkPlatform, "unknown">,
+  options: { fallback: string | null },
+) {
   if (!link) return;
   const envKey = platform === "mac" ? "VITE_FLOW_LINK_MAC_DOWNLOAD_URL" : "VITE_FLOW_LINK_WINDOWS_DOWNLOAD_URL";
-  const fallback = platform === "mac" ? "/downloads/Flow-Link.dmg" : "/downloads/Flow-Link-Setup.exe";
-  link.href = (import.meta.env[envKey] as string | undefined) ?? fallback;
+  const href = (import.meta.env[envKey] as string | undefined) ?? options.fallback;
+  if (!href) {
+    link.hidden = true;
+    return;
+  }
+  link.hidden = false;
+  link.href = href;
 }
 
 function markRecommendedDownload(platform: FlowLinkPlatform) {

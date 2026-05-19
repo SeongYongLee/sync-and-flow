@@ -3,33 +3,36 @@ import { hasBridgeCredentials, isTauriRuntime, resolveBridgeUrl } from "./runtim
 type HealthValue = string | number | boolean | string[] | Record<string, unknown> | null;
 type HealthPayload = Record<string, HealthValue>;
 
-const FIELDS = [
+const SUMMARY_FIELDS = [
   "ok",
   "runtime",
   "buildId",
-  "scanRoots",
   "sourceRoots",
   "sources",
-  "clients",
   "watchedFiles",
+  "readLines",
+  "parseMisses",
+  "lastEventAt",
+  "lastSource",
+  "lastModel",
+  "workerUrl",
+  "lastWorkerPublishAt",
+  "lastWorkerError",
+] as const;
+
+const DETAIL_FIELDS = [
+  "scanRoots",
+  "clients",
   "watchedBytes",
   "latestFile",
   "latestFileSize",
   "latestFileModifiedAt",
   "recentJsonlFiles",
   "lastScanAt",
-  "lastEventAt",
-  "lastSource",
-  "lastModel",
   "lastFile",
   "lastReadAt",
   "lastReadFile",
-  "readLines",
-  "parseMisses",
   "lastError",
-  "workerUrl",
-  "lastWorkerPublishAt",
-  "lastWorkerError",
 ] as const;
 
 export function setupDiagnostics() {
@@ -38,14 +41,15 @@ export function setupDiagnostics() {
   const close = document.getElementById("diagnostics-close") as HTMLButtonElement | null;
   const refresh = document.getElementById("diagnostics-refresh") as HTMLButtonElement | null;
   const grid = document.getElementById("diagnostics-grid") as HTMLDListElement | null;
-  if (!toggle || !panel || !close || !refresh || !grid) return;
+  const detailGrid = document.getElementById("diagnostics-detail-grid") as HTMLDListElement | null;
+  if (!toggle || !panel || !close || !refresh || !grid || !detailGrid) return;
 
   const showDebugButton = isTauriRuntime() && hasBridgeCredentials();
   toggle.hidden = !showDebugButton;
 
   const open = async () => {
     panel.hidden = false;
-    await renderHealth(grid);
+    await renderHealth(grid, detailGrid);
   };
   const hide = () => {
     panel.hidden = true;
@@ -53,7 +57,7 @@ export function setupDiagnostics() {
   };
 
   toggle.addEventListener("click", () => void open());
-  refresh.addEventListener("click", () => void renderHealth(grid));
+  refresh.addEventListener("click", () => void renderHealth(grid, detailGrid));
   close.addEventListener("click", hide);
   window.addEventListener("hashchange", () => {
     if (location.hash === "#diagnostics") void open();
@@ -62,15 +66,18 @@ export function setupDiagnostics() {
   if (location.hash === "#diagnostics") void open();
 }
 
-async function renderHealth(grid: HTMLDListElement) {
+async function renderHealth(grid: HTMLDListElement, detailGrid: HTMLDListElement) {
   grid.innerHTML = `<dt>Status</dt><dd>Loading...</dd>`;
+  detailGrid.innerHTML = "";
   try {
     const res = await fetch(resolveBridgeUrl("/health"));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = (await res.json()) as HealthPayload;
-    grid.innerHTML = FIELDS.map((field) => row(field, formatHealthValue(field, payload[field]))).join("");
+    grid.innerHTML = SUMMARY_FIELDS.map((field) => row(field, formatHealthValue(field, payload[field]))).join("");
+    detailGrid.innerHTML = DETAIL_FIELDS.map((field) => row(field, formatHealthValue(field, payload[field]))).join("");
   } catch (error) {
     grid.innerHTML = row("error", error instanceof Error ? error.message : String(error));
+    detailGrid.innerHTML = "";
   }
 }
 

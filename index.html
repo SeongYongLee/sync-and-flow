@@ -44,6 +44,15 @@
         letter-spacing: 0.04em;
       }
 
+      #hud .value.subtle {
+        max-width: min(340px, calc(100vw - 48px));
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12px;
+        color: rgba(128, 220, 255, 0.82);
+      }
+
       #hud .row {
         display: flex;
         flex-direction: column;
@@ -474,13 +483,38 @@
         line-height: 1.45;
       }
 
-      #diagnostics-grid dt {
+      #diagnostics-detail {
+        margin-top: 14px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 12px;
+      }
+
+      #diagnostics-detail summary {
+        cursor: pointer;
+        color: rgba(255, 255, 255, 0.56);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      #diagnostics-detail-grid {
+        display: grid;
+        grid-template-columns: 120px minmax(0, 1fr);
+        gap: 8px 12px;
+        margin-top: 12px;
+        font-size: 11px;
+        line-height: 1.45;
+      }
+
+      #diagnostics-grid dt,
+      #diagnostics-detail-grid dt {
         color: rgba(255, 255, 255, 0.38);
         text-transform: uppercase;
         letter-spacing: 0.08em;
       }
 
-      #diagnostics-grid dd {
+      #diagnostics-grid dd,
+      #diagnostics-detail-grid dd {
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -492,6 +526,40 @@
       }
 
       @media (max-width: 640px) {
+        #hud {
+          top: 14px;
+          left: 14px;
+          max-width: calc(100vw - 28px);
+          gap: 4px;
+        }
+
+        #hud .label {
+          font-size: 9px;
+        }
+
+        #hud .value {
+          max-width: calc(100vw - 28px);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 12px;
+        }
+
+        #status {
+          top: auto;
+          right: 14px;
+          bottom: 14px;
+          font-size: 9px;
+        }
+
+        #energy-bar-wrap {
+          bottom: 48px;
+        }
+
+        #energy {
+          font-size: 17px;
+        }
+
         #flow-link-card {
           top: 150px;
           bottom: auto;
@@ -520,6 +588,14 @@
         <span class="value" id="model">—</span>
       </div>
       <div class="row">
+        <span class="label">Planet</span>
+        <span class="value" id="planet">Drift · neutral</span>
+      </div>
+      <div class="row">
+        <span class="label">Mix</span>
+        <span class="value subtle" id="planet-mix">Drift</span>
+      </div>
+      <div class="row">
         <span class="label">Sessions</span>
         <span class="value" id="turns">0 turns</span>
       </div>
@@ -546,7 +622,7 @@
         </div>
         <button id="flow-link-dismiss" type="button" aria-label="Hide Flow Link prompt">×</button>
       </header>
-      <p><strong>Flow Link</strong> connects local Claude/Codex token activity. Counts and model names are shared; prompts stay private.</p>
+      <p><strong>Flow Link</strong> connects local Claude/Codex/Pi token activity. Counts and model names are shared; prompts stay private.</p>
       <button id="flow-link-install" class="primary-action" type="button">Install Flow Link</button>
     </section>
 
@@ -569,12 +645,12 @@
         <header>
           <div>
             <h2 id="flow-link-title">Flow Link Desktop App</h2>
-            <p>Flow Link connects this computer through its built-in local bridge.</p>
+            <p>Install the desktop app from the DMG. Flow Link connects this computer through its built-in local bridge.</p>
           </div>
           <button id="flow-link-close" type="button" aria-label="Close">×</button>
         </header>
         <ul>
-          <li>It reads local Claude/Codex token logs.</li>
+          <li>It reads local Claude/Codex/Pi token logs.</li>
           <li>It sends token counts, source, model, and timestamps.</li>
           <li>It never sends prompts or responses.</li>
         </ul>
@@ -593,6 +669,10 @@
         <button id="diagnostics-close" type="button" aria-label="Close">×</button>
       </header>
       <dl id="diagnostics-grid"></dl>
+      <details id="diagnostics-detail">
+        <summary>Advanced</summary>
+        <dl id="diagnostics-detail-grid"></dl>
+      </details>
       <button id="diagnostics-refresh" class="primary-action" type="button">Refresh</button>
     </section>
 

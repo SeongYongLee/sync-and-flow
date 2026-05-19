@@ -19,6 +19,13 @@ function core(overrides: Partial<CoreState> = {}): CoreState {
     ringAngles: [0, 0],
     lastSource: "",
     lastModel: "",
+    planetHistory: [],
+    planetMix: { drift: 1 },
+    dominantPlanetClass: "drift",
+    secondaryPlanetClass: null,
+    auraScale: 1,
+    growthScale: 1,
+    resourceBoost: 1,
     ...overrides,
   };
 }

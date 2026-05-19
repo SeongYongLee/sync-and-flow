@@ -64,12 +64,28 @@ try {
 
   const status = await page.locator("#status").innerText();
   const model = await page.locator("#model").innerText();
+  const planet = await page.locator("#planet").innerText();
+  const mix = await page.locator("#planet-mix").innerText();
   if (process.env.REQUIRE_WORKER === "1" && !status.includes("MULTI LIVE")) {
     throw new Error(`expected Worker presence to be live, got: ${status}`);
   }
+  if (!planet.trim() || !mix.trim()) {
+    throw new Error(`planet HUD did not render: planet=${planet}, mix=${mix}`);
+  }
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(250);
+  const mobileHudOk = await page.locator("#hud").evaluate((hud) => {
+    const rect = hud.getBoundingClientRect();
+    return rect.left >= 0 && rect.right <= window.innerWidth && rect.top >= 0;
+  });
+  if (!mobileHudOk) throw new Error("mobile HUD is outside the viewport");
+
   console.log(`[smoke] page OK: ${url}`);
   console.log(`[smoke] status: ${status}`);
   console.log(`[smoke] model: ${model}`);
+  console.log(`[smoke] planet: ${planet}`);
+  console.log(`[smoke] mix: ${mix}`);
   console.log(`[smoke] canvas: ${canvasStats.width}x${canvasStats.height}, nonBackground=${canvasStats.nonBackground}`);
   console.log(`[smoke] diagnostics: ${diagnosticsAvailable ? "checked" : "hidden"}`);
 

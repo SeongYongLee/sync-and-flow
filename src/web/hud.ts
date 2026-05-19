@@ -1,3 +1,5 @@
+import { PLANET_META, type PlanetClass } from "./model-visuals.js";
+
 export type PresenceStatus = "connecting" | "open" | "closed" | "fallback" | "unreachable";
 export type StreamStatus = "idle" | "connecting" | "open" | "error";
 
@@ -8,6 +10,8 @@ export interface StatusView {
 
 export class HudController {
   private readonly model = document.getElementById("model")!;
+  private readonly planet = document.getElementById("planet")!;
+  private readonly planetMix = document.getElementById("planet-mix")!;
   private readonly turns = document.getElementById("turns")!;
   private readonly output = document.getElementById("output-tokens")!;
   private readonly energy = document.getElementById("energy")!;
@@ -25,8 +29,12 @@ export class HudController {
     this.renderStatus(detail);
   }
 
-  updateTurn(source: string, model: string, turns: number, outputTokens: number, energy: number): void {
+  updateTurn(source: string, model: string, turns: number, outputTokens: number, energy: number, planetClass: PlanetClass = "drift", mixLabel = ""): void {
+    const meta = PLANET_META[planetClass];
     this.model.textContent = formatModelLabel(source, model);
+    this.planet.textContent = `${meta.label} · ${meta.role}`;
+    this.planet.title = meta.description;
+    this.planetMix.textContent = mixLabel || meta.label;
     this.turns.textContent = `${turns} turns`;
     this.output.textContent = outputTokens.toLocaleString();
     this.energy.textContent = `${Math.round(energy).toLocaleString()} flow`;
