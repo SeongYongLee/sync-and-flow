@@ -3,6 +3,7 @@ export type Provider = "anthropic" | "openai" | "google" | "github";
 export type SourceId =
   | "claude"
   | "codex"
+  | "pi"
   | "cursor-agent"
   | "gemini-cli"
   | "antigravity"

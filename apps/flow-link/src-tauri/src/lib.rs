@@ -5,7 +5,7 @@ use std::{
     fs::{self, File},
     io::{BufRead, BufReader, Read, Seek, SeekFrom, Write},
     net::{TcpListener, TcpStream},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -23,11 +23,16 @@ use tauri::{
 };
 
 use native_bridge::{
-    is_claude_session_path, is_codex_path, parse_claude_turn, CodexParseState, Turn,
+    is_claude_session_path, is_codex_path, is_pi_path, parse_claude_turn, parse_pi_turn,
+    CodexParseState, Turn,
 };
 
-const FLOW_LINK_BUILD_ID: &str = "safe-roots-2026-05-16T00:30KST";
-const FLOW_LINK_SCAN_ROOTS: [&str; 2] = ["~/.claude/projects", "~/.codex/sessions"];
+const FLOW_LINK_BUILD_ID: &str = "pi-roots-2026-05-18T23:35KST";
+const FLOW_LINK_SCAN_ROOTS: [&str; 3] = [
+    "~/.claude/projects",
+    "~/.codex/sessions",
+    "~/.pi/agent/sessions",
+];
 
 struct BridgeState {
     process: Mutex<BridgeProcess>,
@@ -743,13 +748,13 @@ fn poll_sources(shutdown: Arc<AtomicBool>, state: Arc<Mutex<NativeBridgeState>>)
             let current_size = fs::metadata(&path)
                 .map(|metadata| metadata.len())
                 .unwrap_or(0);
-            let offset = offsets.entry(path.clone()).or_insert(
-                if initialized_existing_files || is_recent_session_file(&path) {
+            let offset = offsets
+                .entry(path.clone())
+                .or_insert(if initialized_existing_files {
                     0
                 } else {
                     current_size
-                },
-            );
+                });
             if current_size < *offset {
                 *offset = 0;
             }
@@ -786,6 +791,12 @@ fn parse_turn_for_path(
         return codex_state
             .parse_turn(line, path)
             .or_else(|| parse_claude_turn(line));
+    }
+
+    if is_pi_log_path(path) {
+        return parse_pi_turn(line)
+            .or_else(|| parse_claude_turn(line))
+            .or_else(|| codex_state.parse_turn(line, path));
     }
 
     parse_claude_turn(line).or_else(|| codex_state.parse_turn(line, path))
@@ -859,15 +870,6 @@ fn update_scan_status(state: &Arc<Mutex<NativeBridgeState>>, scan: ScanSummary, 
     state.last_error = error.to_string();
 }
 
-fn is_recent_session_file(path: &PathBuf) -> bool {
-    let Ok(metadata) = fs::metadata(path) else {
-        return false;
-    };
-    let modified = metadata_modified_millis(&metadata);
-    let now = chrono_like_timestamp();
-    modified > 0 && now.saturating_sub(modified) <= Duration::from_secs(15 * 60).as_millis()
-}
-
 fn discover_jsonl_files() -> Vec<PathBuf> {
     let cwd = std::env::current_dir().ok();
     let home = home_dir();
@@ -902,6 +904,7 @@ fn discover_jsonl_files_from(cwd: Option<&PathBuf>, home: Option<&PathBuf>) -> V
             &mut seen,
             &mut files,
         );
+        collect_pi_files(&pi_sessions_dir(home), 0, &mut seen, &mut files);
         collect_recent_jsonl_files(
             &home.join(".claude").join("projects"),
             0,
@@ -911,6 +914,13 @@ fn discover_jsonl_files_from(cwd: Option<&PathBuf>, home: Option<&PathBuf>) -> V
         );
         collect_recent_jsonl_files(
             &home.join(".codex").join("sessions"),
+            0,
+            &mut seen,
+            &mut files,
+            Duration::from_secs(24 * 60 * 60).as_millis(),
+        );
+        collect_recent_jsonl_files(
+            &pi_sessions_dir(home),
             0,
             &mut seen,
             &mut files,
@@ -943,17 +953,22 @@ fn source_roots_status_json(home: Option<&PathBuf>) -> String {
         &home.join(".codex").join("sessions"),
         SourceKind::Codex,
     );
+    let pi_log_dir = pi_sessions_dir(home);
+    let pi_root = pi_root_dir(home, &pi_log_dir);
+    let pi = source_root_status(&pi_root, &pi_log_dir, SourceKind::Pi);
 
     format!(
-        "{{\"claude\":{},\"codex\":{}}}",
+        "{{\"claude\":{},\"codex\":{},\"pi\":{}}}",
         source_root_status_item_json(&claude),
-        source_root_status_item_json(&codex)
+        source_root_status_item_json(&codex),
+        source_root_status_item_json(&pi)
     )
 }
 
 enum SourceKind {
     Claude,
     Codex,
+    Pi,
 }
 
 fn source_root_status(root: &PathBuf, log_dir: &PathBuf, kind: SourceKind) -> SourceRootStatus {
@@ -964,6 +979,7 @@ fn source_root_status(root: &PathBuf, log_dir: &PathBuf, kind: SourceKind) -> So
     match kind {
         SourceKind::Claude => collect_claude_files(log_dir, 0, &mut seen, &mut supported),
         SourceKind::Codex => collect_codex_files(log_dir, 0, &mut seen, &mut supported),
+        SourceKind::Pi => collect_pi_files(log_dir, 0, &mut seen, &mut supported),
     }
 
     let mut recent_seen = HashSet::new();
@@ -1045,6 +1061,28 @@ fn collect_codex_files(
     }
 }
 
+fn collect_pi_files(
+    dir: &PathBuf,
+    depth: usize,
+    seen: &mut HashSet<PathBuf>,
+    files: &mut Vec<PathBuf>,
+) {
+    if depth > 7 {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_pi_files(&path, depth + 1, seen, files);
+        } else if is_pi_session_jsonl(&path, dir) {
+            push_unique_file(path, seen, files);
+        }
+    }
+}
+
 fn collect_recent_jsonl_files(
     dir: &PathBuf,
     depth: usize,
@@ -1091,6 +1129,45 @@ fn is_jsonl_file(path: &PathBuf) -> bool {
         .is_some_and(|extension| extension == "jsonl")
 }
 
+fn pi_agent_dir(home: &PathBuf) -> PathBuf {
+    std::env::var_os("PI_CODING_AGENT_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".pi").join("agent"))
+}
+
+fn pi_sessions_dir(home: &PathBuf) -> PathBuf {
+    std::env::var_os("PI_CODING_AGENT_SESSION_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| pi_agent_dir(home).join("sessions"))
+}
+
+fn pi_root_dir(home: &PathBuf, session_dir: &PathBuf) -> PathBuf {
+    if std::env::var_os("PI_CODING_AGENT_SESSION_DIR").is_some() {
+        session_dir.clone()
+    } else {
+        pi_agent_dir(home)
+    }
+}
+
+fn is_pi_log_path(path: &Path) -> bool {
+    if is_pi_path(path) {
+        return true;
+    }
+
+    let Some(home) = home_dir() else {
+        return false;
+    };
+    is_pi_session_jsonl(path, &pi_sessions_dir(&home))
+}
+
+fn is_pi_session_jsonl(path: &Path, session_dir: &Path) -> bool {
+    path.starts_with(session_dir)
+        && path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension == "jsonl")
+}
+
 fn read_new_lines(path: &PathBuf, offset: u64) -> Vec<String> {
     let Ok(mut file) = File::open(path) else {
         return Vec::new();
@@ -1119,6 +1196,7 @@ fn discover_recent_jsonl_candidates() -> Vec<String> {
     let roots = [
         home.join(".claude").join("projects"),
         home.join(".codex").join("sessions"),
+        pi_sessions_dir(&home),
     ];
     let mut candidates = Vec::new();
     let mut seen = HashSet::new();
@@ -1137,8 +1215,10 @@ fn discover_recent_jsonl_candidates() -> Vec<String> {
         .into_iter()
         .take(8)
         .map(|candidate| {
-            let supported =
-                is_claude_session_path(&candidate.path) || is_codex_path(&candidate.path);
+            let pi_session_root = pi_sessions_dir(&home);
+            let supported = is_claude_session_path(&candidate.path)
+                || is_codex_path(&candidate.path)
+                || is_pi_session_jsonl(&candidate.path, &pi_session_root);
             format!(
                 "{} | {} bytes | {} | {}",
                 candidate.modified,
@@ -1478,7 +1558,7 @@ mod tests {
     #[test]
     fn native_bridge_serves_authorized_health_and_identity() {
         let mut bridge = spawn_native_bridge().expect("bridge");
-        wait_for_bridge(bridge.port);
+        wait_for_bridge_http(bridge.port);
 
         let unauthorized = http_get(bridge.port, "/health");
         assert!(unauthorized.starts_with("HTTP/1.1 401 Unauthorized"));
@@ -1509,6 +1589,24 @@ mod tests {
     }
 
     #[test]
+    fn recognizes_jsonl_under_explicit_pi_session_root() {
+        let session_root = PathBuf::from("/tmp/custom-pi-sessions");
+
+        assert!(is_pi_session_jsonl(
+            Path::new("/tmp/custom-pi-sessions/project/session.jsonl"),
+            &session_root,
+        ));
+        assert!(!is_pi_session_jsonl(
+            Path::new("/tmp/custom-pi-sessions/project/session.txt"),
+            &session_root,
+        ));
+        assert!(!is_pi_session_jsonl(
+            Path::new("/tmp/other-pi-sessions/project/session.jsonl"),
+            &session_root,
+        ));
+    }
+
+    #[test]
     fn discovers_supported_and_recent_jsonl_files() {
         let root = temp_test_dir("flow-link-discovery");
         let cwd = root.join("cwd");
@@ -1520,6 +1618,11 @@ mod tests {
             .join("2026")
             .join("05")
             .join("15");
+        let pi_session = home
+            .join(".pi")
+            .join("agent")
+            .join("sessions")
+            .join("project-a");
         let too_deep = home
             .join(".claude")
             .join("projects")
@@ -1533,11 +1636,13 @@ mod tests {
         fs::create_dir_all(&cwd).expect("cwd");
         fs::create_dir_all(&claude_project).expect("claude project");
         fs::create_dir_all(&codex_day).expect("codex day");
+        fs::create_dir_all(&pi_session).expect("pi session");
         fs::create_dir_all(&too_deep).expect("deep claude project");
 
         let cwd_claude = cwd.join("00000000-0000-0000-0000-000000000001.jsonl");
         let home_claude = claude_project.join("00000000-0000-0000-0000-000000000002.jsonl");
         let codex = codex_day.join("rollout-test.jsonl");
+        let pi = pi_session.join("session.jsonl");
         let ignored_cwd = cwd.join("not-a-session.jsonl");
         let ignored_codex = codex_day.join("notes.jsonl");
         let ignored_deep = too_deep.join("00000000-0000-0000-0000-000000000003.jsonl");
@@ -1546,6 +1651,7 @@ mod tests {
             &cwd_claude,
             &home_claude,
             &codex,
+            &pi,
             &ignored_cwd,
             &ignored_codex,
             &ignored_deep,
@@ -1556,16 +1662,24 @@ mod tests {
         let mut discovered = discover_jsonl_files_from(Some(&cwd), Some(&home));
         discovered.sort();
 
-        let mut expected = vec![cwd_claude, home_claude, codex, ignored_codex, ignored_deep];
+        let mut expected = vec![
+            cwd_claude,
+            home_claude,
+            codex,
+            pi,
+            ignored_codex,
+            ignored_deep,
+        ];
         expected.sort();
         assert_eq!(discovered, expected);
 
         fs::remove_dir_all(root).expect("cleanup");
     }
 
-    fn wait_for_bridge(port: u16) {
+    fn wait_for_bridge_http(port: u16) {
         for _ in 0..50 {
-            if TcpStream::connect(("127.0.0.1", port)).is_ok() {
+            let response = http_get_maybe(port, "/identity").unwrap_or_default();
+            if response.starts_with("HTTP/1.1 200 OK") {
                 return;
             }
             thread::sleep(Duration::from_millis(20));
@@ -1574,9 +1688,21 @@ mod tests {
     }
 
     fn http_get(port: u16, path: &str) -> String {
-        let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
+        for _ in 0..20 {
+            if let Some(response) = http_get_maybe(port, path) {
+                if !response.is_empty() {
+                    return response;
+                }
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+        panic!("bridge did not respond to {path}");
+    }
+
+    fn http_get_maybe(port: u16, path: &str) -> Option<String> {
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).ok()?;
         let request = format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n");
-        stream.write_all(request.as_bytes()).expect("write request");
+        stream.write_all(request.as_bytes()).ok()?;
         let _ = stream.set_read_timeout(Some(Duration::from_millis(1_000)));
         let mut response = String::new();
         let mut buf = [0_u8; 4096];
@@ -1608,7 +1734,7 @@ mod tests {
                 Err(error) => panic!("read response: {error}"),
             }
         }
-        response
+        Some(response)
     }
 
     fn temp_test_dir(prefix: &str) -> PathBuf {

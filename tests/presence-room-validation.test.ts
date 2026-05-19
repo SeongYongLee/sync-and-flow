@@ -31,6 +31,14 @@ describe("parseClientMessage", () => {
     expect(parseClientMessage(JSON.stringify(validPublish))).toEqual(validPublish);
   });
 
+  it("accepts pi publish payloads over the shared network protocol", () => {
+    expect(parseClientMessage(JSON.stringify({ ...validPublish, source: "pi", model: "pi-agent" }))).toEqual({
+      ...validPublish,
+      source: "pi",
+      model: "pi-agent",
+    });
+  });
+
   it("rejects malformed or unknown messages", () => {
     expect(parseClientMessage("{")).toBeNull();
     expect(parseClientMessage(JSON.stringify({ kind: "delete-room" }))).toBeNull();

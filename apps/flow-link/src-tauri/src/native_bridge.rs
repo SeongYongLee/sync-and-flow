@@ -130,6 +130,200 @@ pub fn parse_claude_turn(line: &str) -> Option<Turn> {
     })
 }
 
+pub fn parse_pi_turn(line: &str) -> Option<Turn> {
+    let entry: serde_json::Value = serde_json::from_str(line).ok()?;
+
+    if let Some(turn) = parse_pi_message_entry(&entry) {
+        return Some(turn);
+    }
+
+    if let Some(turn) = parse_pi_claude_like(&entry) {
+        return Some(turn);
+    }
+
+    if let Some(turn) = parse_pi_codex_like(&entry) {
+        return Some(turn);
+    }
+
+    parse_pi_generic_usage(&entry)
+}
+
+fn parse_pi_message_entry(entry: &serde_json::Value) -> Option<Turn> {
+    if entry.get("type")?.as_str()? != "message" {
+        return None;
+    }
+    let message = entry.get("message")?;
+    if message.get("role")?.as_str()? != "assistant" {
+        return None;
+    }
+    let usage = message.get("usage")?;
+    let provider = match message.get("provider").and_then(|v| v.as_str()) {
+        Some("anthropic") => "anthropic",
+        Some("google") => "google",
+        Some("github") => "github",
+        _ => "openai",
+    };
+    Some(Turn {
+        source: "pi",
+        provider,
+        model: message
+            .get("model")
+            .and_then(|v| v.as_str())
+            .unwrap_or("pi-agent")
+            .to_string(),
+        input_tokens: usage_number(usage, &["input", "input_tokens", "inputTokens"])?,
+        output_tokens: usage_number(usage, &["output", "output_tokens", "outputTokens"])?,
+        cache_read_tokens: usage_number(
+            usage,
+            &[
+                "cacheRead",
+                "cache_read_input_tokens",
+                "cacheReadTokens",
+                "cached_input_tokens",
+            ],
+        )
+        .unwrap_or(0),
+        timestamp: entry
+            .get("timestamp")
+            .or_else(|| message.get("timestamp"))
+            .and_then(|v| {
+                v.as_str()
+                    .map(str::to_string)
+                    .or_else(|| v.as_u64().map(|n| n.to_string()))
+            })
+            .unwrap_or_default(),
+    })
+}
+
+fn parse_pi_claude_like(entry: &serde_json::Value) -> Option<Turn> {
+    if entry.get("type")?.as_str()? != "assistant" {
+        return None;
+    }
+    let message = entry.get("message")?;
+    if message.get("role")?.as_str()? != "assistant" {
+        return None;
+    }
+    let usage = message.get("usage")?;
+    Some(Turn {
+        source: "pi",
+        provider: "anthropic",
+        model: message
+            .get("model")
+            .and_then(|v| v.as_str())
+            .unwrap_or("pi-claude")
+            .to_string(),
+        input_tokens: usage.get("input_tokens")?.as_u64()?,
+        output_tokens: usage.get("output_tokens")?.as_u64()?,
+        cache_read_tokens: usage
+            .get("cache_read_input_tokens")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0),
+        timestamp: entry
+            .get("timestamp")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+    })
+}
+
+fn parse_pi_codex_like(entry: &serde_json::Value) -> Option<Turn> {
+    if entry.get("type")?.as_str()? != "event_msg" {
+        return None;
+    }
+    let payload = entry.get("payload")?;
+    if payload.get("type")?.as_str()? != "token_count" {
+        return None;
+    }
+    let info = payload.get("info")?;
+    let last = info.get("last_token_usage")?;
+    Some(Turn {
+        source: "pi",
+        provider: "openai",
+        model: payload
+            .get("model")
+            .or_else(|| info.get("model"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("pi-agent")
+            .to_string(),
+        input_tokens: last.get("input_tokens")?.as_u64()?.saturating_sub(
+            last.get("cached_input_tokens")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0),
+        ),
+        output_tokens: last.get("output_tokens")?.as_u64()?
+            + last
+                .get("reasoning_output_tokens")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0),
+        cache_read_tokens: last
+            .get("cached_input_tokens")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0),
+        timestamp: entry
+            .get("timestamp")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+    })
+}
+
+fn parse_pi_generic_usage(entry: &serde_json::Value) -> Option<Turn> {
+    let usage = entry
+        .get("usage")
+        .or_else(|| entry.get("token_usage"))
+        .or_else(|| entry.get("tokenUsage"))
+        .or_else(|| {
+            entry
+                .get("message")
+                .and_then(|message| message.get("usage"))
+        })?;
+    let model = entry
+        .get("model")
+        .or_else(|| {
+            entry
+                .get("message")
+                .and_then(|message| message.get("model"))
+        })
+        .and_then(|v| v.as_str())
+        .unwrap_or("pi-agent")
+        .to_string();
+    let cached = usage_number(
+        usage,
+        &[
+            "cacheRead",
+            "cached_input_tokens",
+            "cache_read_input_tokens",
+            "cacheReadTokens",
+        ],
+    )
+    .unwrap_or(0);
+    Some(Turn {
+        source: "pi",
+        provider: if model.to_ascii_lowercase().contains("claude") {
+            "anthropic"
+        } else {
+            "openai"
+        },
+        model,
+        input_tokens: usage_number(usage, &["input", "input_tokens", "inputTokens"])?
+            .saturating_sub(usage_number(usage, &["cached_input_tokens"]).unwrap_or(0)),
+        output_tokens: usage_number(usage, &["output", "output_tokens", "outputTokens"])?
+            + usage_number(usage, &["reasoning_output_tokens"]).unwrap_or(0),
+        cache_read_tokens: cached,
+        timestamp: entry
+            .get("timestamp")
+            .or_else(|| entry.get("created_at"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+    })
+}
+
+fn usage_number(usage: &serde_json::Value, keys: &[&str]) -> Option<u64> {
+    keys.iter()
+        .find_map(|key| usage.get(*key).and_then(|value| value.as_u64()))
+}
+
 pub fn is_claude_session_path(path: &Path) -> bool {
     let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
         return false;
@@ -147,6 +341,20 @@ pub fn is_codex_path(path: &Path) -> bool {
             .file_name()
             .and_then(|name| name.to_str())
             .is_some_and(|name| name.starts_with("rollout-") && name.ends_with(".jsonl"))
+}
+
+pub fn is_pi_path(path: &Path) -> bool {
+    let components = path
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .collect::<Vec<_>>();
+    components
+        .windows(3)
+        .any(|window| window == [".pi", "agent", "sessions"])
+        && path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.ends_with(".jsonl"))
 }
 
 #[cfg(test)]
@@ -238,5 +446,80 @@ mod tests {
         assert!(!is_codex_path(Path::new(
             "/Users/me/.codex/rollout-test.jsonl"
         )));
+        assert!(is_pi_path(Path::new(
+            "/Users/me/.pi/agent/sessions/project/session.jsonl"
+        )));
+        assert!(!is_pi_path(Path::new(
+            "/Users/me/.codex/sessions/2026/05/12/rollout-test.jsonl"
+        )));
+    }
+
+    #[test]
+    fn parses_pi_claude_like_assistant_usage_as_pi_source() {
+        let line = r#"{"type":"assistant","timestamp":"2026-05-19T01:00:00Z","message":{"role":"assistant","model":"claude-opus-4","usage":{"input_tokens":30,"output_tokens":40,"cache_creation_input_tokens":0,"cache_read_input_tokens":8}}}"#;
+        let turn = parse_pi_turn(line).expect("turn");
+
+        assert_eq!(turn.source, "pi");
+        assert_eq!(turn.provider, "anthropic");
+        assert_eq!(turn.model, "claude-opus-4");
+        assert_eq!(turn.input_tokens, 30);
+        assert_eq!(turn.output_tokens, 40);
+        assert_eq!(turn.cache_read_tokens, 8);
+        assert_eq!(turn.timestamp, "2026-05-19T01:00:00Z");
+    }
+
+    #[test]
+    fn parses_pi_generic_usage_and_infers_provider_from_model() {
+        let line = r#"{"created_at":"2026-05-19T02:00:00Z","model":"gpt-5-codex","usage":{"input_tokens":50,"cached_input_tokens":15,"output_tokens":12,"reasoning_output_tokens":4}}"#;
+        let turn = parse_pi_turn(line).expect("turn");
+
+        assert_eq!(turn.source, "pi");
+        assert_eq!(turn.provider, "openai");
+        assert_eq!(turn.model, "gpt-5-codex");
+        assert_eq!(turn.input_tokens, 35);
+        assert_eq!(turn.output_tokens, 16);
+        assert_eq!(turn.cache_read_tokens, 15);
+        assert_eq!(turn.timestamp, "2026-05-19T02:00:00Z");
+    }
+
+    #[test]
+    fn parses_pi_codex_like_usage_as_pi_source() {
+        let line = r#"{"type":"event_msg","timestamp":"2026-05-18T00:00:00Z","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":15,"cached_input_tokens":5,"output_tokens":7,"reasoning_output_tokens":2,"total_tokens":24}}}}"#;
+        let turn = parse_pi_turn(line).expect("turn");
+
+        assert_eq!(turn.source, "pi");
+        assert_eq!(turn.provider, "openai");
+        assert_eq!(turn.model, "pi-agent");
+        assert_eq!(turn.input_tokens, 10);
+        assert_eq!(turn.output_tokens, 9);
+        assert_eq!(turn.cache_read_tokens, 5);
+    }
+
+    #[test]
+    fn parses_pi_message_usage_with_openai_codex_provider_name() {
+        let line = r#"{"type":"message","id":"entry-1","parentId":"entry-0","timestamp":"2026-05-19T03:00:00Z","message":{"role":"assistant","api":"responses","provider":"openai-codex","model":"gpt-5.5","usage":{"input":4864,"output":61,"cacheRead":100,"cacheWrite":25,"totalTokens":5025,"cost":0}}}"#;
+        let turn = parse_pi_turn(line).expect("turn");
+
+        assert_eq!(turn.source, "pi");
+        assert_eq!(turn.provider, "openai");
+        assert_eq!(turn.model, "gpt-5.5");
+        assert_eq!(turn.input_tokens, 4864);
+        assert_eq!(turn.output_tokens, 61);
+        assert_eq!(turn.cache_read_tokens, 100);
+        assert_eq!(turn.timestamp, "2026-05-19T03:00:00Z");
+    }
+
+    #[test]
+    fn parses_pi_message_usage_with_simple_token_names() {
+        let line = r#"{"type":"message","timestamp":"2026-05-19T00:00:00Z","message":{"role":"assistant","provider":"anthropic","model":"claude-sonnet-4","usage":{"input":10,"output":20,"cacheRead":3,"totalTokens":33}}}"#;
+        let turn = parse_pi_turn(line).expect("turn");
+
+        assert_eq!(turn.source, "pi");
+        assert_eq!(turn.provider, "anthropic");
+        assert_eq!(turn.model, "claude-sonnet-4");
+        assert_eq!(turn.input_tokens, 10);
+        assert_eq!(turn.output_tokens, 20);
+        assert_eq!(turn.cache_read_tokens, 3);
+        assert_eq!(turn.timestamp, "2026-05-19T00:00:00Z");
     }
 }

@@ -1,8 +1,10 @@
+/// <reference path="./worker-types.d.ts" />
+
 import { PresenceRoomState } from "./room-state.js";
 import type { ClientToWorkerMessage } from "../../src/shared/protocol.js";
 import type { Provider, SourceId } from "../../src/core/types.js";
 
-const SOURCES = new Set(["claude", "codex", "cursor-agent", "gemini-cli", "antigravity", "cursor", "claude-desktop", "copilot"]);
+const SOURCES = new Set(["claude", "codex", "pi", "cursor-agent", "gemini-cli", "antigravity", "cursor", "claude-desktop", "copilot"]);
 const PROVIDERS = new Set(["anthropic", "openai", "google", "github"]);
 const MAX_TEXT = 160;
 const MAX_TOKEN_COUNT = 1_000_000_000_000;
@@ -203,7 +205,7 @@ function providerString(value: unknown): Provider | null {
 }
 
 function integerTokenCount(value: unknown): number | null {
-  return Number.isInteger(value) && value >= 0 && value <= MAX_TOKEN_COUNT ? value : null;
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= MAX_TOKEN_COUNT ? value : null;
 }
 
 function finiteNonNegative(value: unknown): number | null {

@@ -99,7 +99,7 @@ function formatHealthValue(field: string, value: HealthValue | undefined): strin
 }
 
 function formatSourceRoots(value: Record<string, unknown>): string {
-  const parts = ["claude", "codex"].map((source) => {
+  const parts = ["claude", "codex", "pi"].map((source) => {
     const status = value[source];
     if (!isRecord(status)) return `${source}: -`;
     const root = status["root"] === "exists" ? "root ok" : "root missing";
@@ -118,6 +118,7 @@ function formatRecentJsonlFile(value: string): string {
   const parts = value.split(" | ");
   if (parts.length < 4) return shortenPath(value);
   const [, size, support, path] = parts;
+  if (!size || !support || !path) return shortenPath(value);
   return `${support} ${size} ${shortenPath(path)}`;
 }
 
