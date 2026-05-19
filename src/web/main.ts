@@ -6,7 +6,7 @@ import { setupFlowLinkPrompt } from "./flow-link.js";
 import { setupDiagnostics } from "./diagnostics.js";
 import { GridLayer } from "./grid.js";
 import { HudController } from "./hud.js";
-import { CoreRenderer, rawCoreRadius } from "./core-renderer.js";
+import { CoreRenderer, displayCoreRadius } from "./core-renderer.js";
 import {
   ensureCore as ensureCoreState,
   layoutCores as layoutCoreTargets,
@@ -63,7 +63,7 @@ function drawGrid() {
 function calcTargetZoom(): number {
   const self = cores.get(selfId);
   if (!self) return 1;
-  const rawR = rawCoreRadius(self, true, false);
+  const rawR = displayCoreRadius(self, true, viewport(), false);
   const cap = Math.min(canvas.width, canvas.height) * 0.12;
   return rawR > cap ? Math.max(0.25, cap / rawR) : 1;
 }

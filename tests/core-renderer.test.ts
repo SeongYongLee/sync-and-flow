@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayCoreRadius, rawCoreRadius, updateCoreMotion } from "../src/web/core-renderer.js";
+import { displayCoreRadius, rawCoreRadius, updateCoreMotion, visualMorphStep, visualTurnIntensity } from "../src/web/core-renderer.js";
 import type { CoreState } from "../src/web/core-state.js";
 
 function core(overrides: Partial<CoreState> = {}): CoreState {
@@ -31,11 +31,11 @@ describe("core renderer helpers", () => {
     expect(rawCoreRadius(state, false, false)).toBeCloseTo(16.8);
   });
 
-  it("caps peer display radius by viewport size", () => {
+  it("caps display radius by viewport size", () => {
     const state = core({ energy: 10_000 });
 
     expect(displayCoreRadius(state, false, { width: 200, height: 100 }, false)).toBeCloseTo(7);
-    expect(displayCoreRadius(state, true, { width: 200, height: 100 }, false)).toBeGreaterThan(7);
+    expect(displayCoreRadius(state, true, { width: 200, height: 100 }, false)).toBeCloseTo(16);
   });
 
   it("advances core position, energy, pulse, noise, and ring angles", () => {
@@ -50,5 +50,21 @@ describe("core renderer helpers", () => {
     expect(state.noisePhase).toBeCloseTo(0.018);
     expect(state.ringAngles[0]).toBeCloseTo(0.007);
     expect(state.ringAngles[1]).toBeCloseTo(-0.01);
+  });
+
+  it("speeds up visual morphing after recent high-energy turns", () => {
+    const now = 1_000_000;
+    const idle = core({ energy: 100, targetEnergy: 100, lastTurnAt: 0 });
+    const active = core({ energy: 10, targetEnergy: 370, lastTurnAt: now });
+
+    expect(visualMorphStep(active, 1, now)).toBeGreaterThan(visualMorphStep(idle, 1, now));
+    expect(visualTurnIntensity(active, now)).toBeGreaterThan(visualTurnIntensity(idle, now));
+  });
+
+  it("lets recent turn intensity fade over time", () => {
+    const now = 1_000_000;
+    const state = core({ energy: 10, targetEnergy: 120, lastTurnAt: now });
+
+    expect(visualTurnIntensity(state, now + 1_000)).toBeGreaterThan(visualTurnIntensity(state, now + 12_000));
   });
 });

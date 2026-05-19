@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hexToRgb, modelAccent, modelVisual, planetVariant } from "../src/web/model-visuals.js";
+import { hexToRgb, modelAccent, modelTrait, modelVisual, planetVariant } from "../src/web/model-visuals.js";
 
 describe("model visuals", () => {
   it("maps known providers and model families to stable accents", () => {
@@ -21,5 +21,16 @@ describe("model visuals", () => {
   it("exposes model-specific visual differences", () => {
     expect(modelVisual("claude", "claude-haiku-4", "#ffffff").ringCount).toBe(1);
     expect(modelVisual("claude", "claude-opus-4", "#ffffff").ringAlpha).toBeGreaterThan(1);
+    expect(modelVisual("claude", "claude-sonnet-4", "#ffffff").planetClass).toBe("nebula");
+    expect(modelVisual("codex", "gpt-5-codex", "#ffffff").planetClass).toBe("forge");
+    expect(modelVisual("gemini-cli", "gemini-pro", "#ffffff").planetClass).toBe("prism");
+    expect(modelVisual("copilot", "gpt-4.1", "#ffffff").planetClass).toBe("grove");
+    expect(modelVisual("cursor", "cursor-agent", "#ffffff").planetClass).toBe("relay");
+  });
+
+  it("exposes model-specific gameplay traits", () => {
+    expect(modelTrait("codex", "gpt-5-codex").particleBurst).toBeGreaterThan(modelTrait("claude", "claude-sonnet-4").particleBurst);
+    expect(modelTrait("cursor", "cursor-agent").particlePull).toBeGreaterThan(modelTrait("copilot", "gpt-4.1").particlePull);
+    expect(modelTrait("gemini-cli", "gemini-pro").particleSpread).toBeGreaterThan(modelTrait("codex", "gpt-5-codex").particleSpread);
   });
 });
