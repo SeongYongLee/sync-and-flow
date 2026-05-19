@@ -4,6 +4,13 @@ export interface ParticleTarget {
   y: number;
 }
 
+export interface ParticleSpawnOptions {
+  speed?: number;
+  spread?: number;
+  life?: number;
+  pull?: number;
+}
+
 interface Particle {
   x: number;
   y: number;
@@ -14,6 +21,7 @@ interface Particle {
   color: string;
   life: number;
   decay: number;
+  pull: number;
   targetId: string;
 }
 
@@ -26,8 +34,19 @@ export class ParticleSystem {
     return this.particles.length;
   }
 
-  spawn(target: ParticleTarget, count: number, color: string, viewport: { width: number; height: number }, isSelf: boolean): void {
+  spawn(
+    target: ParticleTarget,
+    count: number,
+    color: string,
+    viewport: { width: number; height: number },
+    isSelf: boolean,
+    options: ParticleSpawnOptions = {},
+  ): void {
     const spawnRadius = Math.min(viewport.width, viewport.height) * (isSelf ? 0.42 : 0.18);
+    const speedScale = options.speed ?? 1;
+    const spreadScale = options.spread ?? 1;
+    const lifeScale = options.life ?? 1;
+    const pullScale = options.pull ?? 1;
 
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -35,8 +54,8 @@ export class ParticleSystem {
       const x = target.x + Math.cos(angle) * dist;
       const y = target.y + Math.sin(angle) * dist;
       const toCore = Math.atan2(target.y - y, target.x - x);
-      const speed = 1.2 + Math.random() * 2;
-      const spread = (Math.random() - 0.5) * 0.7;
+      const speed = (1.2 + Math.random() * 2) * speedScale;
+      const spread = (Math.random() - 0.5) * 0.7 * spreadScale;
 
       this.particles.push({
         x,
@@ -47,7 +66,8 @@ export class ParticleSystem {
         alpha: 0.36 + Math.random() * 0.28,
         color,
         life: 1,
-        decay: 0.008 + Math.random() * 0.012,
+        decay: (0.008 + Math.random() * 0.012) / lifeScale,
+        pull: pullScale,
         targetId: target.id,
       });
     }
@@ -68,8 +88,8 @@ export class ParticleSystem {
       const dy = target.y - p.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist > 1) {
-        p.vx += (dx / dist) * 0.08 * frameScale;
-        p.vy += (dy / dist) * 0.08 * frameScale;
+        p.vx += (dx / dist) * 0.08 * p.pull * frameScale;
+        p.vy += (dy / dist) * 0.08 * p.pull * frameScale;
       }
 
       p.x += p.vx * frameScale;

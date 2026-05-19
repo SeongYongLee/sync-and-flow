@@ -74,9 +74,10 @@ describe("turn event application", () => {
       lastSource: "codex",
       lastModel: "gpt-5-codex",
     });
-    expect(particles.calls[0]?.[1]).toBe(11);
+    expect(particles.calls[0]?.[1]).toBe(13);
     expect(particles.calls[0]?.[3]).toEqual({ width: 800, height: 600 });
     expect(particles.calls[0]?.[4]).toBe(true);
+    expect(particles.calls[0]?.[5]).toMatchObject({ speed: 1.18, spread: 0.82, life: 0.9, pull: 1.06 });
     expect(hud.calls).toEqual([["codex", "gpt-5-codex", 3, 61, 99]]);
   });
 

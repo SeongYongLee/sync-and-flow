@@ -1,5 +1,6 @@
 import type { CoreState, ViewportSize } from "./core-state.js";
-import { modelAccent } from "./model-visuals.js";
+import { modelAccent, modelTrait } from "./model-visuals.js";
+import type { ParticleSpawnOptions } from "./particles.js";
 import type { SnapshotEvent, TurnEvent } from "./stream-client.js";
 import type { TurnMessage } from "../shared/protocol.js";
 
@@ -8,7 +9,7 @@ interface HudLike {
 }
 
 interface ParticleLike {
-  spawn(target: CoreState, count: number, color: string, viewport: ViewportSize, isSelf: boolean): void;
+  spawn(target: CoreState, count: number, color: string, viewport: ViewportSize, isSelf: boolean, options?: ParticleSpawnOptions): void;
 }
 
 export interface TurnEventDeps {
@@ -26,9 +27,15 @@ export function applyTurnEvent(ownerId: string, event: TurnEvent | TurnMessage, 
   if (!core) return false;
 
   const color = modelAccent(event.source, event.model, core.color);
-  const count = Math.min(Math.ceil(event.delta.outputTokens / 6), 48);
+  const trait = modelTrait(event.source, event.model);
+  const count = Math.min(Math.ceil((event.delta.outputTokens / 6) * trait.particleBurst), 64);
   const isSelf = ownerId === deps.selfId;
-  deps.particles.spawn(core, count, color, deps.viewport, isSelf);
+  deps.particles.spawn(core, count, color, deps.viewport, isSelf, {
+    speed: trait.particleSpeed,
+    spread: trait.particleSpread,
+    life: trait.particleLife,
+    pull: trait.particlePull,
+  });
 
   applyCoreEventState(core, event.energy, event.source, event.model, deps.now?.() ?? Date.now());
   if (shouldUpdateHud(ownerId, deps)) deps.hud.updateTurn(event.source, event.model, event.totals.turns, event.totals.outputTokens, event.energy);
