@@ -594,7 +594,7 @@ fn cors_headers(origin: Option<&str>) -> String {
     };
 
     format!(
-        "Access-Control-Allow-Origin: {origin}\r\nAccess-Control-Allow-Methods: GET, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nVary: Origin\r\n"
+        "Access-Control-Allow-Origin: {origin}\r\nAccess-Control-Allow-Methods: GET, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nAccess-Control-Allow-Private-Network: true\r\nVary: Origin\r\n"
     )
 }
 
@@ -605,8 +605,16 @@ fn is_allowed_origin(origin: &str) -> bool {
             | "http://localhost:5175"
             | "http://tauri.localhost"
             | "https://tauri.localhost"
+            | "https://sync-and-flow.pages.dev"
             | "tauri://localhost"
     ) {
+        return true;
+    }
+
+    if origin
+        .strip_prefix("https://")
+        .is_some_and(|host| host.ends_with(".sync-and-flow.pages.dev"))
+    {
         return true;
     }
 
@@ -941,8 +949,11 @@ mod tests {
         assert!(is_allowed_origin("http://192.168.0.38:5175"));
         assert!(is_allowed_origin("http://10.0.0.2:5175"));
         assert!(is_allowed_origin("http://172.16.0.2:5175"));
+        assert!(is_allowed_origin("https://sync-and-flow.pages.dev"));
+        assert!(is_allowed_origin("https://main.sync-and-flow.pages.dev"));
         assert!(!is_allowed_origin("http://192.168.0.38:3000"));
         assert!(!is_allowed_origin("https://192.168.0.38:5175"));
+        assert!(!is_allowed_origin("https://other.pages.dev"));
     }
 
     #[test]
