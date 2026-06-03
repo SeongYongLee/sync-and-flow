@@ -30,7 +30,10 @@
     "active": true,
     "targets": "all",
     "category": "DeveloperTool",
-    "icon": [],
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
     "shortDescription": "Connect Claude/Codex/Pi activity to Sync and Flow.",
     "longDescription": "Flow Link shows the Sync and Flow visualization and connects local Claude/Codex/Pi token activity to your planet."
   }
