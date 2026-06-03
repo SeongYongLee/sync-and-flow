@@ -7,7 +7,7 @@ describe("resolveStatusView", () => {
   });
 
   it("shows SSE live when worker presence is not open", () => {
-    expect(resolveStatusView("closed", "open")).toEqual({ text: "● SSE LIVE", color: "#80ff80" });
+    expect(resolveStatusView("disabled", "open")).toEqual({ text: "● SSE LIVE", color: "#80ff80" });
   });
 
   it("surfaces worker fallback and unreachable states", () => {
@@ -17,6 +17,10 @@ describe("resolveStatusView", () => {
 
   it("defaults to connecting", () => {
     expect(resolveStatusView("connecting", "idle")).toEqual({ text: "● CONNECTING", color: "rgba(255,255,255,0.45)" });
+  });
+
+  it("shows local-only when remote presence is disabled and no stream is open", () => {
+    expect(resolveStatusView("disabled", "idle")).toEqual({ text: "● LOCAL ONLY", color: "rgba(255,255,255,0.45)" });
   });
 
   it("does not render an empty source/model snapshot as a colon", () => {

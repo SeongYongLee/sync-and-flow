@@ -1,6 +1,6 @@
 import { PLANET_META, type PlanetClass } from "./model-visuals.js";
 
-export type PresenceStatus = "connecting" | "open" | "closed" | "fallback" | "unreachable";
+export type PresenceStatus = "disabled" | "connecting" | "open" | "closed" | "fallback" | "unreachable";
 export type StreamStatus = "idle" | "connecting" | "open" | "error";
 
 export interface StatusView {
@@ -17,7 +17,7 @@ export class HudController {
   private readonly output = document.getElementById("output-tokens")!;
   private readonly energy = document.getElementById("energy")!;
   private readonly status = document.getElementById("status")!;
-  private presenceState: PresenceStatus = "connecting";
+  private presenceState: PresenceStatus = "disabled";
   private streamState: StreamStatus = "idle";
 
   updatePresence(state: PresenceStatus, detail = ""): void {
@@ -62,5 +62,6 @@ export function resolveStatusView(presenceState: PresenceStatus, streamState: St
   if (streamState === "open") return { text: "● SSE LIVE", color: "#80ff80" };
   if (presenceState === "fallback") return { text: "● SSE FALLBACK", color: "#ffb050" };
   if (presenceState === "unreachable") return { text: "● WORKER UNREACHABLE", color: "#ffb050" };
+  if (presenceState === "disabled" && streamState === "idle") return { text: "● LOCAL ONLY", color: "rgba(255,255,255,0.45)" };
   return { text: "● CONNECTING", color: "rgba(255,255,255,0.45)" };
 }

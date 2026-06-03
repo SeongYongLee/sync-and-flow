@@ -3,21 +3,22 @@ const BRIDGE_PORT_KEY = "sf:bridge-port";
 const BRIDGE_TOKEN_KEY = "sf:bridge-token";
 
 export function resolveWorkerUrl(): string {
+  return resolveOptionalWorkerUrl() ?? "ws://localhost:8787";
+}
+
+export function resolveOptionalWorkerUrl(): string | null {
   const fromQuery = new URLSearchParams(location.search).get("worker");
   if (fromQuery) return fromQuery;
 
   const fromEnv = import.meta.env.VITE_SYNC_FLOW_WORKER_URL as string | undefined;
   if (fromEnv) return fromEnv;
 
-  if (location.protocol === "https:") {
-    return `${location.origin.replace(/^https:/, "wss:")}/presence`;
-  }
+  return null;
+}
 
-  if (!isLocalHost(location.hostname)) {
-    return `ws://${location.hostname}:8787`;
-  }
-
-  return "ws://localhost:8787";
+export function resolveOptionalWorkerWatchUrl(): string | null {
+  const workerUrl = resolveOptionalWorkerUrl();
+  return workerUrl ? stripWorkerPublishToken(workerUrl) : null;
 }
 
 export function resolveBridgeUrl(path: string): string {
@@ -40,7 +41,12 @@ export function resolveBridgeUrl(path: string): string {
 
 export function hasBridgeCredentials(): boolean {
   const params = new URLSearchParams(location.search);
+  if (isBridgePaused()) return false;
   return Boolean(params.get("bridgeToken") ?? sessionStorage.getItem(BRIDGE_TOKEN_KEY));
+}
+
+export function isBridgePaused(): boolean {
+  return new URLSearchParams(location.search).get("bridgePaused") === "1";
 }
 
 export async function buildViewerUrl(): Promise<string | null> {
@@ -68,8 +74,14 @@ export function buildLanViewerUrlFromHost(host: string): string {
   if (!normalizedHost) throw new Error("Enter your Mac LAN IP.");
 
   localStorage.setItem(LAN_HOST_KEY, normalizedHost);
+  const workerUrl = resolveOptionalWorkerWatchUrl();
+  if (!workerUrl) {
+    throw new Error("Mobile viewing requires remote presence. Start the Worker and open Flow Link with a worker URL first.");
+  }
+
   const page = new URL(`http://${normalizedHost}:5173/`);
-  page.searchParams.set("worker", `ws://${normalizedHost}:8787`);
+  page.searchParams.set("worker", workerUrlForLanViewer(workerUrl, normalizedHost));
+  page.searchParams.set("bridgePaused", "1");
   return page.toString();
 }
 
@@ -88,4 +100,25 @@ export function isLocalHost(hostname: string): boolean {
 
 export function isTauriRuntime(): boolean {
   return "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
+}
+
+function workerUrlForLanViewer(workerUrl: string, lanHost: string): string {
+  try {
+    const url = new URL(workerUrl);
+    if (isLocalHost(url.hostname)) url.hostname = lanHost;
+    url.searchParams.delete("token");
+    return url.toString();
+  } catch {
+    return workerUrl;
+  }
+}
+
+function stripWorkerPublishToken(workerUrl: string): string {
+  try {
+    const url = new URL(workerUrl);
+    url.searchParams.delete("token");
+    return url.toString();
+  } catch {
+    return workerUrl;
+  }
 }

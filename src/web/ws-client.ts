@@ -1,10 +1,11 @@
 import type { Identity } from "../shared/nickname.js";
 import type { SubscribeMessage, WorkerToBrowserMessage } from "../shared/protocol.js";
-import { resolveWorkerUrl } from "./runtime-url.js";
+import type { PresenceStatus } from "./hud.js";
+import { resolveOptionalWorkerWatchUrl } from "./runtime-url.js";
 
 export interface PresenceHandlers {
   onMessage(message: WorkerToBrowserMessage): void;
-  onStatus(state: "connecting" | "open" | "closed" | "fallback" | "unreachable", detail?: string): void;
+  onStatus(state: PresenceStatus, detail?: string): void;
 }
 
 export interface PresenceOptions {
@@ -21,9 +22,13 @@ export function connectPresence(identity: Identity, handlers: PresenceHandlers, 
 
   const connect = () => {
     if (closed) return;
-    const baseUrl = resolveWorkerUrl();
+    const baseUrl = resolveOptionalWorkerWatchUrl();
+    if (!baseUrl) {
+      handlers.onStatus("disabled");
+      return;
+    }
     handlers.onStatus("connecting", baseUrl);
-    ws = new WebSocket(`${baseUrl.replace(/\/$/, "")}/watch`);
+    ws = new WebSocket(workerEndpoint(baseUrl, "watch"));
     connectTimeout = window.setTimeout(() => {
       if (ws?.readyState !== WebSocket.OPEN) {
         handlers.onStatus("unreachable", baseUrl);
@@ -86,4 +91,10 @@ export function connectPresence(identity: Identity, handlers: PresenceHandlers, 
     if (connectTimeout !== null) window.clearTimeout(connectTimeout);
     ws?.close();
   };
+}
+
+function workerEndpoint(baseUrl: string, path: string): string {
+  const url = new URL(baseUrl);
+  url.pathname = `${url.pathname.replace(/\/$/, "")}/${path}`;
+  return url.toString();
 }

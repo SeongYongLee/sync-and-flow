@@ -1,4 +1,4 @@
-import { resolveWorkerUrl } from "./runtime-url.js";
+import { resolveBridgeUrl, resolveOptionalWorkerWatchUrl } from "./runtime-url.js";
 
 export function setupFlowLinkPrompt(mode: "local-bridge" | "browser-only") {
   const card = document.getElementById("flow-link-card")!;
@@ -16,7 +16,7 @@ export function setupFlowLinkPrompt(mode: "local-bridge" | "browser-only") {
   }
 
   card.removeAttribute("hidden");
-  worker.textContent = resolveWorkerUrl();
+  worker.textContent = resolveOptionalWorkerWatchUrl() ?? resolveBridgeUrl("/events");
   setupDownloadLink(macDownload, "mac", { fallback: "/downloads/Flow-Link.dmg" });
   setupDownloadLink(windowsDownload, "windows", { fallback: null });
   markRecommendedDownload(detectPlatform());

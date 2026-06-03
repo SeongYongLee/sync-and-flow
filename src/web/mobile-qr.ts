@@ -1,5 +1,5 @@
 import { toString as qrToString } from "qrcode";
-import { buildLanViewerUrlFromHost, buildViewerUrl, getStoredLanHost, isTauriRuntime } from "./runtime-url.js";
+import { buildLanViewerUrlFromHost, buildViewerUrl, getStoredLanHost, isTauriRuntime, resolveOptionalWorkerWatchUrl } from "./runtime-url.js";
 
 export function setupMobileQr() {
   const button = document.getElementById("mobile-share") as HTMLButtonElement | null;
@@ -9,6 +9,10 @@ export function setupMobileQr() {
   const hostForm = document.getElementById("mobile-host-form") as HTMLFormElement | null;
   const hostInput = document.getElementById("mobile-host") as HTMLInputElement | null;
   const close = document.getElementById("mobile-qr-close") as HTMLButtonElement | null;
+  if (button && isTauriRuntime() && !resolveOptionalWorkerWatchUrl()) {
+    button.textContent = "MOBILE OFF";
+    button.title = "Mobile QR needs remote presence.";
+  }
 
   button?.addEventListener("click", async () => {
     panel.removeAttribute("hidden");
@@ -51,6 +55,14 @@ async function buildMobileUrl(
   urlText: HTMLElement,
 ): Promise<string | null> {
   if (isTauriRuntime()) {
+    if (!resolveOptionalWorkerWatchUrl()) {
+      hostForm?.setAttribute("hidden", "");
+      qr.setAttribute("hidden", "");
+      qr.textContent = "";
+      urlText.textContent = "Mobile viewing is disabled in local-only mode. Start remote presence with a Worker URL to generate a mobile QR.";
+      return null;
+    }
+
     const storedHost = getStoredLanHost();
     if (!storedHost) {
       hostForm?.removeAttribute("hidden");

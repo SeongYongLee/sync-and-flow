@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseClientMessage } from "../worker/src/room.js";
+import { isAuthorizedPublish } from "../worker/src/index.js";
 import type { PublishMessage } from "../src/shared/protocol.js";
 
 const validPublish: PublishMessage = {
@@ -59,5 +60,17 @@ describe("parseClientMessage", () => {
       color: "#ffffff",
     });
     expect(parseClientMessage(JSON.stringify({ kind: "ping", userId: "me" }))).toEqual({ kind: "ping", userId: "me" });
+  });
+});
+
+describe("publish authorization", () => {
+  it("allows publish when no token is configured", () => {
+    expect(isAuthorizedPublish(new Request("https://example.com/publish"), undefined)).toBe(true);
+  });
+
+  it("requires a matching query or bearer token when configured", () => {
+    expect(isAuthorizedPublish(new Request("https://example.com/publish"), "secret")).toBe(false);
+    expect(isAuthorizedPublish(new Request("https://example.com/publish?token=secret"), "secret")).toBe(true);
+    expect(isAuthorizedPublish(new Request("https://example.com/publish", { headers: { Authorization: "Bearer secret" } }), "secret")).toBe(true);
   });
 });

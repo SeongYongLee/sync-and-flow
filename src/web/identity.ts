@@ -1,5 +1,5 @@
 import { colorForId, createIdentity, type Identity } from "../shared/nickname.js";
-import { resolveBridgeUrl } from "./runtime-url.js";
+import { isBridgePaused, resolveBridgeUrl } from "./runtime-url.js";
 
 const VIEWER_KEY = "sf:viewer-identity";
 
@@ -31,6 +31,7 @@ export async function getPresenceIdentityResult(): Promise<PresenceIdentityResul
 }
 
 async function fetchBridgeIdentity(): Promise<Identity | null> {
+  if (isBridgePaused()) return null;
   const urls = [resolveBridgeUrl("/identity")];
 
   for (const url of urls) {

@@ -143,6 +143,16 @@ describe("PresenceRoomState", () => {
     expect(web.messages.some((message) => message.kind === "turn" && message.userId === "peer")).toBe(true);
   });
 
+  it("replaces repeated subscriptions on the same socket", () => {
+    const state = new PresenceRoomState();
+    const me = new FakeSocket();
+
+    state.subscribe(me, subscribe("me"));
+    state.subscribe(me, subscribe("me"));
+
+    expect(lastRoster(me)).toMatchObject({ kind: "roster", viewerCount: 1 });
+  });
+
   it("replays the latest visible snapshot to late subscribers", () => {
     const state = new PresenceRoomState();
     const app = new FakeSocket();

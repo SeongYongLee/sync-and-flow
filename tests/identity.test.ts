@@ -101,4 +101,15 @@ describe("presence identity", () => {
     expect(result.mode).toBe("browser-only");
     expect(result.identity.userId).toBeTruthy();
   });
+
+  it("skips local bridge identity when bridgePaused is set", async () => {
+    setBrowserUrl("http://192.168.0.38:5175/?bridgePaused=1");
+    const fetchMock = vi.fn();
+    Object.defineProperty(globalThis, "fetch", { configurable: true, value: fetchMock });
+
+    const result = await getPresenceIdentityResult();
+
+    expect(result.mode).toBe("browser-only");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

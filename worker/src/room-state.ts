@@ -46,7 +46,9 @@ export class PresenceRoomState {
   }
 
   subscribe(ws: SendSocket, message: SubscribeMessage): void {
-    const previous = this.findViewerBySocket(ws)?.visiblePeers;
+    const existing = this.findViewerBySocket(ws);
+    const previous = existing?.visiblePeers;
+    if (existing) this.viewers.delete(existing);
     const peers = samplePeers(message.userId, this.activeUsers, previous);
     const viewer = { viewerId: message.userId, ws, visiblePeers: new Set(peers.map((peer) => peer.id)) };
     this.viewers.add(viewer);

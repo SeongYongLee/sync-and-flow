@@ -34,6 +34,7 @@ const FLOW_LINK_SCAN_ROOTS: [&str; 3] = [
     "~/.codex/sessions",
     "~/.pi/agent/sessions",
 ];
+const SOURCE_POLL_INTERVAL_MS: u64 = 180;
 
 struct BridgeState {
     process: Mutex<BridgeProcess>,
@@ -247,12 +248,12 @@ fn bridge_window_url(bridge: Option<&BridgeConfig>) -> WebviewUrl {
 fn bridge_page_href(bridge: Option<&BridgeConfig>) -> String {
     let query = bridge
         .map(|bridge| {
-            format!(
-                "bridgePort={}&bridgeToken={}&worker={}",
-                bridge.port,
-                bridge.token,
-                query_escape(&bridge.worker_url)
-            )
+            let mut query = format!("bridgePort={}&bridgeToken={}", bridge.port, bridge.token);
+            if !bridge.worker_url.is_empty() {
+                query.push_str("&worker=");
+                query.push_str(&query_escape(&worker_watch_url(&bridge.worker_url)));
+            }
+            query
         })
         .unwrap_or_else(|| "bridgePaused=1".to_string());
 
@@ -275,6 +276,22 @@ fn query_escape(value: &str) -> String {
         .replace('&', "%26")
         .replace('?', "%3F")
         .replace('=', "%3D")
+}
+
+fn worker_watch_url(worker_url: &str) -> String {
+    let Some((base, query)) = worker_url.split_once('?') else {
+        return worker_url.to_string();
+    };
+    let query = query
+        .split('&')
+        .filter(|part| !part.starts_with("token="))
+        .collect::<Vec<_>>()
+        .join("&");
+    if query.is_empty() {
+        base.to_string()
+    } else {
+        format!("{base}?{query}")
+    }
 }
 
 fn flow_link_tray_icon() -> Image<'static> {
@@ -780,7 +797,7 @@ fn poll_sources(shutdown: Arc<AtomicBool>, state: Arc<Mutex<NativeBridgeState>>)
         }
 
         initialized_existing_files = true;
-        thread::sleep(Duration::from_millis(500));
+        thread::sleep(Duration::from_millis(SOURCE_POLL_INTERVAL_MS));
     }
 }
 
@@ -1294,10 +1311,20 @@ fn publish_turn(state: &Arc<Mutex<NativeBridgeState>>, turn: Turn, path: &PathBu
             .clients
             .retain_mut(|client| client.write_all(payload.as_bytes()).is_ok());
 
-        (
+        if state.worker_url.is_empty() {
+            state.last_worker_publish_at.clear();
+            state.last_worker_error.clear();
+            return;
+        }
+
+        Some((
             state.worker_url.clone(),
             worker_publish_json(&state.identity, &turn, &state.totals),
-        )
+        ))
+    };
+
+    let Some(worker_publish) = worker_publish else {
+        return;
     };
 
     let state = Arc::clone(state);
@@ -1438,7 +1465,7 @@ fn resolve_worker_url() -> String {
                 .map(str::to_string)
                 .ok_or(std::env::VarError::NotPresent)
         })
-        .unwrap_or_else(|_| "ws://localhost:8787".to_string())
+        .unwrap_or_default()
 }
 
 fn publish_to_worker(worker_url: &str, payload: &str) -> Result<(), String> {
@@ -1463,18 +1490,28 @@ fn publish_to_worker(worker_url: &str, payload: &str) -> Result<(), String> {
 fn worker_publish_endpoint(worker_url: &str) -> Result<String, String> {
     let base = worker_url.trim().trim_end_matches('/');
     if let Some(rest) = base.strip_prefix("ws://") {
-        return Ok(format!("http://{rest}/publish"));
+        return Ok(worker_publish_endpoint_with_scheme("http://", rest));
     }
     if let Some(rest) = base.strip_prefix("http://") {
-        return Ok(format!("http://{rest}/publish"));
+        return Ok(worker_publish_endpoint_with_scheme("http://", rest));
     }
     if let Some(rest) = base.strip_prefix("wss://") {
-        return Ok(format!("https://{rest}/publish"));
+        return Ok(worker_publish_endpoint_with_scheme("https://", rest));
     }
     if let Some(rest) = base.strip_prefix("https://") {
-        return Ok(format!("https://{rest}/publish"));
+        return Ok(worker_publish_endpoint_with_scheme("https://", rest));
     }
     Err(format!("unsupported worker url: {worker_url}"))
+}
+
+fn worker_publish_endpoint_with_scheme(scheme: &str, rest: &str) -> String {
+    let (path, query) = rest.split_once('?').unwrap_or((rest, ""));
+    let query = if query.is_empty() {
+        String::new()
+    } else {
+        format!("?{query}")
+    };
+    format!("{scheme}{}/publish{query}", path.trim_end_matches('/'))
 }
 
 fn color_for_id(id: &str) -> String {
@@ -1554,6 +1591,18 @@ mod tests {
         assert_eq!(
             worker_publish_endpoint("wss://example.com/presence").unwrap(),
             "https://example.com/presence/publish"
+        );
+        assert_eq!(
+            worker_publish_endpoint("wss://example.com/presence?token=secret").unwrap(),
+            "https://example.com/presence/publish?token=secret"
+        );
+        assert_eq!(
+            worker_watch_url("wss://example.com/presence?token=secret"),
+            "wss://example.com/presence"
+        );
+        assert_eq!(
+            worker_watch_url("wss://example.com/presence?room=a&token=secret"),
+            "wss://example.com/presence?room=a"
         );
     }
 
@@ -1732,6 +1781,12 @@ mod tests {
                     ) =>
                 {
                     thread::sleep(Duration::from_millis(50));
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::ConnectionReset => {
+                    if response.is_empty() {
+                        return None;
+                    }
+                    break;
                 }
                 Err(error) => panic!("read response: {error}"),
             }

@@ -34,7 +34,7 @@ export class WorkerPublisher {
   private connect(): void {
     if (this.closed) return;
 
-    const url = `${this.baseUrl.replace(/\/$/, "")}/publish`;
+    const url = workerEndpoint(this.baseUrl, "publish");
     try {
       this.ws = new WebSocket(url);
     } catch (error) {
@@ -64,4 +64,10 @@ export class WorkerPublisher {
       this.retryMs = Math.min(this.retryMs * 1.8, 8_000);
     }, this.retryMs);
   }
+}
+
+function workerEndpoint(baseUrl: string, path: string): string {
+  const url = new URL(baseUrl);
+  url.pathname = `${url.pathname.replace(/\/$/, "")}/${path}`;
+  return url.toString();
 }
