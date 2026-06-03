@@ -54,8 +54,8 @@ export function drawFlowBackdrop(ctx: CanvasRenderingContext2D, viewport: GridVi
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
 
-  drawDiagonalThreads(ctx, width, height, diagonal, step, offset, "96, 218, 255", 0.011);
-  drawDiagonalThreads(ctx, width, height, diagonal, step * 1.7, -offset * 0.72, "255, 184, 96", 0.006, -1);
+  drawDiagonalThreads(ctx, height, diagonal, step, offset, "96, 218, 255", 0.011);
+  drawDiagonalThreads(ctx, height, diagonal, step * 1.7, -offset * 0.72, "255, 184, 96", 0.006, -1);
   drawAmbientBodies(ctx, ambientBodiesForBackdrop(viewport, energy), phase);
   drawDistantPoints(ctx, viewport, step, phase);
 
@@ -64,7 +64,6 @@ export function drawFlowBackdrop(ctx: CanvasRenderingContext2D, viewport: GridVi
 
 function drawDiagonalThreads(
   ctx: CanvasRenderingContext2D,
-  width: number,
   height: number,
   diagonal: number,
   step: number,

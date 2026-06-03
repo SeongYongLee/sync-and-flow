@@ -13,11 +13,14 @@
         overflow: hidden;
         font-family: 'SF Mono', 'Fira Code', monospace;
         color: rgba(255, 255, 255, 0.85);
+        min-height: 100vh;
+        min-height: 100dvh;
       }
 
       #canvas {
         position: fixed;
         inset: 0;
+        touch-action: none;
       }
 
       #hud {
@@ -259,38 +262,6 @@
       }
 
       #mobile-qr[hidden] { display: none; }
-
-      #mobile-host-form {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 12px;
-      }
-
-      #mobile-host-form[hidden] { display: none; }
-
-      #mobile-host {
-        min-width: 0;
-        flex: 1;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 999px;
-        padding: 9px 12px;
-        background: rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.86);
-        font: inherit;
-        font-size: 11px;
-      }
-
-      #mobile-host-submit {
-        border: 0;
-        border-radius: 999px;
-        padding: 9px 12px;
-        background: rgba(128, 180, 255, 0.92);
-        color: rgb(8, 12, 24);
-        font: inherit;
-        font-size: 10px;
-        font-weight: 700;
-        cursor: pointer;
-      }
 
       #mobile-url {
         margin-top: 10px;
@@ -672,60 +643,221 @@
 
       @media (max-width: 640px) {
         #hud {
-          top: 14px;
-          left: 14px;
-          max-width: calc(100vw - 28px);
-          gap: 4px;
+          top: calc(12px + env(safe-area-inset-top));
+          left: 12px;
+          right: 116px;
+          width: auto;
+          max-width: none;
+          gap: 6px;
+          padding: 0;
         }
 
         #hud .label {
-          font-size: 9px;
+          font-size: 8px;
+          letter-spacing: 0.08em;
         }
 
         #hud .value {
-          max-width: calc(100vw - 28px);
+          max-width: 100%;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          font-size: 12px;
+          font-size: 11px;
+          letter-spacing: 0.02em;
+        }
+
+        #hud .primary .value {
+          font-size: 13px;
+        }
+
+        #hud .value.subtle {
+          font-size: 10.5px;
+        }
+
+        #hud .metrics {
+          width: min(190px, 100%);
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
         }
 
         #status {
-          top: auto;
-          right: 14px;
-          bottom: 14px;
+          top: calc(12px + env(safe-area-inset-top));
+          right: 12px;
+          bottom: auto;
+          max-width: 96px;
+          text-align: right;
           font-size: 9px;
+          line-height: 1.35;
+          letter-spacing: 0.06em;
         }
 
         #demo-badge {
-          top: 14px;
+          top: calc(68px + env(safe-area-inset-top));
+          left: auto;
+          right: 12px;
+          transform: none;
           font-size: 9px;
           padding: 6px 9px;
         }
 
         #energy-bar-wrap {
-          bottom: 48px;
+          bottom: calc(52px + env(safe-area-inset-bottom));
+          gap: 5px;
+        }
+
+        #energy-label {
+          font-size: 8px;
+          letter-spacing: 0.1em;
         }
 
         #energy {
-          font-size: 17px;
+          font-size: 16px;
+          letter-spacing: 0.02em;
+        }
+
+        #title {
+          display: none;
+        }
+
+        #mobile-share {
+          left: 12px;
+          right: auto;
+          bottom: calc(12px + env(safe-area-inset-bottom));
+          padding: 8px 10px;
+          font-size: 9px;
+          letter-spacing: 0.06em;
+        }
+
+        #mobile-qr-panel {
+          left: 12px;
+          right: 12px;
+          bottom: calc(52px + env(safe-area-inset-bottom));
+          width: auto;
+          max-height: calc(100dvh - 88px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+          overflow: auto;
+          padding: 14px;
+          border-radius: 12px;
+        }
+
+        #mobile-qr {
+          min-height: 0;
+          padding: 10px;
+        }
+
+        #mobile-qr svg {
+          width: min(220px, 100%);
+          height: auto;
         }
 
         #flow-link-card {
-          top: 126px;
+          top: calc(112px + env(safe-area-inset-top));
           bottom: auto;
-          left: 16px;
-          width: min(360px, calc(100vw - 32px));
+          left: 12px;
+          right: 12px;
+          width: auto;
+          max-height: calc(100dvh - 220px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+          overflow: auto;
           padding: 12px;
+        }
+
+        #flow-link-card header {
+          gap: 10px;
+          margin-bottom: 6px;
+        }
+
+        #flow-link-card .eyebrow {
+          margin-bottom: 5px;
+          font-size: 8.5px;
+          letter-spacing: 0.08em;
         }
 
         #flow-link-card h2 {
           font-size: 13px;
+          line-height: 1.25;
         }
 
         #flow-link-card p {
           font-size: 10.5px;
           line-height: 1.45;
+          margin-bottom: 10px;
+        }
+
+        .primary-action,
+        .secondary-action {
+          min-height: 38px;
+          padding: 9px 11px;
+          font-size: 10px;
+          letter-spacing: 0.05em;
+          white-space: normal;
+          text-align: center;
+        }
+
+        #diagnostics-toggle {
+          top: calc(38px + env(safe-area-inset-top));
+          right: 12px;
+          padding: 6px 8px;
+          font-size: 8.5px;
+          letter-spacing: 0.05em;
+        }
+
+        #diagnostics-panel {
+          top: calc(72px + env(safe-area-inset-top));
+          left: 12px;
+          right: 12px;
+          width: auto;
+          max-height: calc(100dvh - 88px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+          padding: 14px;
+          border-radius: 12px;
+        }
+
+        #diagnostics-progress-cards {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 7px;
+        }
+
+        #diagnostics-grid,
+        #diagnostics-progress-grid,
+        #diagnostics-detail-grid {
+          grid-template-columns: 82px minmax(0, 1fr);
+          gap: 7px 9px;
+          font-size: 10px;
+        }
+
+        #diagnostics-actions {
+          gap: 7px;
+        }
+
+        #flow-link-modal {
+          padding: calc(14px + env(safe-area-inset-top)) 12px calc(14px + env(safe-area-inset-bottom));
+          place-items: end center;
+        }
+
+        #flow-link-dialog {
+          max-height: calc(100dvh - 28px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+          overflow: auto;
+          padding: 16px;
+          border-radius: 14px;
+        }
+
+        #flow-link-dialog header {
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+
+        #flow-link-dialog h2 {
+          font-size: 16px;
+        }
+
+        #flow-link-dialog p,
+        #flow-link-dialog li {
+          font-size: 11px;
+          line-height: 1.55;
+        }
+
+        #flow-link-downloads {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 8px;
         }
       }
     </style>
@@ -782,10 +914,6 @@
         <h2>Open On Phone</h2>
         <button id="mobile-qr-close" type="button" aria-label="Close">×</button>
       </header>
-      <form id="mobile-host-form" hidden>
-        <input id="mobile-host" name="host" type="text" inputmode="decimal" placeholder="Mac LAN IP" autocomplete="off" />
-        <button id="mobile-host-submit" type="submit">QR</button>
-      </form>
       <div id="mobile-qr"></div>
       <p id="mobile-url"></p>
     </section>
