@@ -34,15 +34,18 @@ describe("core renderer helpers", () => {
   it("computes larger self radii than peer radii", () => {
     const state = core({ energy: 100 });
 
-    expect(rawCoreRadius(state, true, false)).toBeCloseTo(34.2929);
-    expect(rawCoreRadius(state, false, false)).toBeCloseTo(18.533);
+    expect(rawCoreRadius(state, true, false)).toBeCloseTo(32.0831);
+    expect(rawCoreRadius(state, false, false)).toBeCloseTo(17.5237);
   });
 
-  it("maps accumulated energy to a bounded visual level", () => {
+  it("maps accumulated energy to a soft visual level without a finite cap", () => {
     expect(energyVisualLevel(0)).toBe(0);
-    expect(energyVisualLevel(100)).toBeGreaterThan(0.5);
-    expect(energyVisualLevel(5_000)).toBe(1);
-    expect(energyVisualLevel(50_000)).toBe(1);
+    expect(energyVisualLevel(100)).toBeGreaterThan(0.2);
+    expect(energyVisualLevel(1_000_000)).toBeLessThan(0.6);
+    expect(energyVisualLevel(700_000)).toBeLessThan(1);
+    expect(energyVisualLevel(10_000_000)).toBeGreaterThan(energyVisualLevel(1_000_000));
+    expect(energyVisualLevel(1_000_000_000_000)).toBeGreaterThan(energyVisualLevel(100_000_000));
+    expect(energyVisualLevel(1_000_000_000_000)).toBeLessThan(1);
   });
 
   it("caps display radius by viewport size", () => {
@@ -68,7 +71,7 @@ describe("core renderer helpers", () => {
 
   it("animates high-energy cores more aggressively than low-energy cores", () => {
     const low = core({ energy: 40, targetEnergy: 40 });
-    const high = core({ energy: 5_000, targetEnergy: 5_000 });
+    const high = core({ energy: 700_000, targetEnergy: 700_000 });
 
     updateCoreMotion(low, 1);
     updateCoreMotion(high, 1);

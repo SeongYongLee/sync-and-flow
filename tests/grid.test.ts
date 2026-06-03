@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderGridPattern } from "../src/web/grid.js";
+import { backdropDriftForEnergy, gridStepForEnergy, renderGridPattern } from "../src/web/grid.js";
 
 describe("renderGridPattern", () => {
   it("draws vertical and horizontal grid lines at the requested step", () => {
@@ -22,6 +22,20 @@ describe("renderGridPattern", () => {
       ["lineWidth", 1],
       ["stroke"],
     ]);
+  });
+
+  it("shrinks grid spacing continuously as raw energy rises", () => {
+    expect(gridStepForEnergy(0)).toBe(72);
+    expect(gridStepForEnergy(100)).toBeCloseTo(57.3919);
+    expect(gridStepForEnergy(700_000)).toBeCloseTo(33.917);
+    expect(gridStepForEnergy(10_000_000)).toBeLessThan(gridStepForEnergy(1_000_000));
+    expect(gridStepForEnergy(1_000_000_000_000)).toBeLessThan(gridStepForEnergy(100_000_000));
+  });
+
+  it("increases backdrop drift gently with energy", () => {
+    expect(backdropDriftForEnergy(0)).toBeCloseTo(0.012);
+    expect(backdropDriftForEnergy(700_000)).toBeGreaterThan(backdropDriftForEnergy(100));
+    expect(backdropDriftForEnergy(10_000_000)).toBeGreaterThan(backdropDriftForEnergy(700_000));
   });
 });
 

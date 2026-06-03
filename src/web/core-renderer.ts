@@ -510,7 +510,7 @@ export function rawCoreRadius(core: CoreState, isSelf: boolean, includePulse = t
 
 export function energyVisualLevel(energy: number): number {
   if (!Number.isFinite(energy) || energy <= 0) return 0;
-  return Math.min(Math.log1p(energy) / Math.log1p(5_000), 1);
+  return 1 - Math.exp(-Math.log1p(energy) / 18);
 }
 
 export function displayCoreRadius(core: CoreState, isSelf: boolean, viewport: ViewportSize, includePulse = true): number {

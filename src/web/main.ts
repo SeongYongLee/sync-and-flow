@@ -4,7 +4,7 @@ import { connectPresence } from "./ws-client.js";
 import { setupMobileQr } from "./mobile-qr.js";
 import { setupFlowLinkPrompt } from "./flow-link.js";
 import { setupDiagnostics } from "./diagnostics.js";
-import { GridLayer } from "./grid.js";
+import { drawFlowBackdrop, GridLayer, gridStepForEnergy } from "./grid.js";
 import { HudController } from "./hud.js";
 import { CoreRenderer, displayCoreRadius } from "./core-renderer.js";
 import {
@@ -58,8 +58,9 @@ function updateRoster(peers: PeerMeta[]) {
   reconcileRoster(cores, selfId, peers, viewport());
 }
 
-function drawGrid() {
-  grid.drawTo(ctx);
+function drawGrid(energy: number, phase: number) {
+  drawFlowBackdrop(ctx, viewport(), energy, phase);
+  grid.drawTo(ctx, gridStepForEnergy(energy));
 }
 
 function calcTargetZoom(): number {
@@ -68,6 +69,17 @@ function calcTargetZoom(): number {
   const rawR = displayCoreRadius(self, true, viewport(), false);
   const cap = Math.min(canvas.width, canvas.height) * 0.12;
   return rawR > cap ? Math.max(0.25, cap / rawR) : 1;
+}
+
+function currentWorldEnergy(): number {
+  const self = cores.get(selfId);
+  if (self) return self.energy;
+
+  let maxEnergy = 0;
+  for (const core of cores.values()) {
+    maxEnergy = Math.max(maxEnergy, core.energy);
+  }
+  return maxEnergy;
 }
 
 function tick(now = performance.now()) {
@@ -87,7 +99,7 @@ function tick(now = performance.now()) {
   ctx.scale(currentZoom, currentZoom);
   ctx.translate(-scx, -scy);
 
-  drawGrid();
+  drawGrid(currentWorldEnergy(), now);
 
   const size = viewport();
   for (const core of cores.values()) {
