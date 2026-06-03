@@ -221,6 +221,10 @@
         color: rgba(255, 255, 255, 0.46);
       }
 
+      #mobile-url:empty {
+        display: none;
+      }
+
       #flow-link-card {
         position: fixed;
         left: 24px;
@@ -440,12 +444,12 @@
         top: 84px;
         right: 24px;
         z-index: 24;
-        width: min(420px, calc(100vw - 48px));
+        width: min(390px, calc(100vw - 32px));
         max-height: calc(100vh - 108px);
         overflow: auto;
-        padding: 16px;
+        padding: 18px;
         border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 20px;
+        border-radius: 16px;
         background: rgba(10, 13, 28, 0.94);
         box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
         backdrop-filter: blur(18px);
@@ -457,12 +461,12 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 12px;
+        margin-bottom: 16px;
       }
 
       #diagnostics-panel h2 {
-        font-size: 12px;
-        letter-spacing: 0.12em;
+        font-size: 11px;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         color: rgba(255, 255, 255, 0.78);
       }
@@ -477,10 +481,53 @@
 
       #diagnostics-grid {
         display: grid;
-        grid-template-columns: 120px minmax(0, 1fr);
+        grid-template-columns: 104px minmax(0, 1fr);
         gap: 8px 12px;
         font-size: 11px;
         line-height: 1.45;
+      }
+
+      #diagnostics-progress-grid {
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr);
+        gap: 7px 12px;
+        font-size: 11px;
+        line-height: 1.45;
+      }
+
+      #diagnostics-progress-cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .diagnostics-metric {
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.055);
+      }
+
+      .diagnostics-metric span {
+        display: block;
+        margin-bottom: 5px;
+        color: rgba(255, 255, 255, 0.38);
+        font-size: 9px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .diagnostics-metric strong {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: rgba(255, 255, 255, 0.86);
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0;
       }
 
       #diagnostics-detail {
@@ -499,7 +546,7 @@
 
       #diagnostics-detail-grid {
         display: grid;
-        grid-template-columns: 120px minmax(0, 1fr);
+        grid-template-columns: 104px minmax(0, 1fr);
         gap: 8px 12px;
         margin-top: 12px;
         font-size: 11px;
@@ -507,13 +554,14 @@
       }
 
       #diagnostics-grid dt,
+      #diagnostics-progress-grid dt,
       #diagnostics-detail-grid dt {
         color: rgba(255, 255, 255, 0.38);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0;
       }
 
       #diagnostics-grid dd,
+      #diagnostics-progress-grid dd,
       #diagnostics-detail-grid dd {
         min-width: 0;
         overflow: hidden;
@@ -521,8 +569,26 @@
         color: rgba(255, 255, 255, 0.76);
       }
 
-      #diagnostics-refresh {
-        margin-top: 14px;
+      #diagnostics-progress-title {
+        margin: 0 0 10px;
+      }
+
+      #diagnostics-actions {
+        display: flex;
+        gap: 8px;
+        margin: 14px 0 16px;
+      }
+
+      #diagnostics-actions button {
+        min-width: 0;
+        flex: 1;
+        border-radius: 8px;
+        padding: 10px 12px;
+        white-space: nowrap;
+      }
+
+      #diagnostics-bridge-title {
+        margin: 6px 0 10px;
       }
 
       @media (max-width: 640px) {
@@ -658,7 +724,7 @@
           <li>It sends token counts, source, model, and timestamps.</li>
           <li>It never sends prompts or responses.</li>
         </ul>
-        <p>Install and open the desktop app. It starts the local bridge automatically and connects to:</p>
+        <p>Install and open the desktop app. It starts the local bridge automatically and connects this browser to:</p>
         <pre id="flow-link-worker-url"></pre>
         <div id="flow-link-downloads">
           <a id="flow-link-download-mac" class="secondary-action" href="/downloads/Flow-Link.dmg" download>Download for macOS</a>
@@ -669,15 +735,22 @@
 
     <section id="diagnostics-panel" hidden>
       <header>
-        <h2>Bridge Diagnostics</h2>
+        <h2>Diagnostics</h2>
         <button id="diagnostics-close" type="button" aria-label="Close">×</button>
       </header>
+      <h2 id="diagnostics-progress-title">Local Progress</h2>
+      <div id="diagnostics-progress-cards"></div>
+      <dl id="diagnostics-progress-grid"></dl>
+      <div id="diagnostics-actions">
+        <button id="diagnostics-refresh" class="primary-action" type="button">Refresh</button>
+        <button id="diagnostics-reset-progress" class="secondary-action" type="button">Reset Progress</button>
+      </div>
+      <h2 id="diagnostics-bridge-title">Bridge</h2>
       <dl id="diagnostics-grid"></dl>
       <details id="diagnostics-detail">
-        <summary>Advanced</summary>
+        <summary>Bridge details</summary>
         <dl id="diagnostics-detail-grid"></dl>
       </details>
-      <button id="diagnostics-refresh" class="primary-action" type="button">Refresh</button>
     </section>
 
     <script type="module" src="/src/web/main.ts"></script>

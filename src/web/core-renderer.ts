@@ -46,8 +46,9 @@ export class CoreRenderer {
 
     const isSelf = core.id === options.selfId;
     const r = displayCoreRadius(core, isSelf, options.viewport);
+    const energyLevel = energyVisualLevel(core.energy);
     const rgb = hexToRgb(core.color);
-    const alpha = isSelf ? 0.88 : 0.72;
+    const alpha = (isSelf ? 0.84 : 0.68) + energyLevel * (isSelf ? 0.12 : 0.16);
     const variant = planetVariant(core.id, isSelf);
     const visual = this.resolveVisual(core, options.frameScale);
 
@@ -68,7 +69,7 @@ export class CoreRenderer {
         cfg.tiltY,
         core.ringAngles[i]!,
         visual.accentRgb,
-        cfg.alpha * variant.ringAlpha * visual.ringAlpha,
+        cfg.alpha * variant.ringAlpha * visual.ringAlpha * (0.72 + energyLevel * 0.72),
         false,
       );
     }
@@ -98,7 +99,7 @@ export class CoreRenderer {
         cfg.tiltY,
         core.ringAngles[i]!,
         visual.accentRgb,
-        cfg.alpha * variant.ringAlpha * visual.ringAlpha,
+        cfg.alpha * variant.ringAlpha * visual.ringAlpha * (0.72 + energyLevel * 0.72),
         true,
       );
     }
@@ -112,11 +113,14 @@ export class CoreRenderer {
 
   private drawGlow(core: CoreState, r: number, isSelf: boolean, visual: ModelVisual): void {
     const auraScale = core.auraScale ?? 1;
-    const glow = this.ctx.createRadialGradient(core.x, core.y, r * 0.4, core.x, core.y, r * 2.8 * auraScale);
-    glow.addColorStop(0, `rgba(${visual.accentRgb}, ${(isSelf ? 0.2 : 0.14) * visual.glowAlpha})`);
+    const energyLevel = energyVisualLevel(core.energy);
+    const glowRadius = r * (2.45 + energyLevel * 1.25) * auraScale;
+    const glow = this.ctx.createRadialGradient(core.x, core.y, r * 0.4, core.x, core.y, glowRadius);
+    glow.addColorStop(0, `rgba(${visual.accentRgb}, ${((isSelf ? 0.18 : 0.12) + energyLevel * 0.18) * visual.glowAlpha})`);
+    glow.addColorStop(0.42, `rgba(${visual.accentRgb}, ${energyLevel * 0.11 * visual.glowAlpha})`);
     glow.addColorStop(1, `rgba(${visual.accentRgb}, 0)`);
     this.ctx.beginPath();
-    this.ctx.arc(core.x, core.y, r * 2.8 * auraScale, 0, Math.PI * 2);
+    this.ctx.arc(core.x, core.y, glowRadius, 0, Math.PI * 2);
     this.ctx.fillStyle = glow;
     this.ctx.fill();
   }
@@ -460,7 +464,7 @@ export function visualMorphStep(core: CoreState, frameScale: number, now = Date.
 export function visualTurnIntensity(core: CoreState, now = Date.now()): number {
   const energyGap = Math.min(Math.abs(core.targetEnergy - core.energy) / 240, 1);
   const recentTurn = recentTurnFactor(core.lastTurnAt, now);
-  return Math.min(1, energyGap * 0.7 + recentTurn * 0.5);
+  return Math.min(1, energyGap * 0.55 + recentTurn * 0.42 + energyVisualLevel(core.energy) * 0.38);
 }
 
 function boostActiveVisual(visual: ModelVisual, intensity: number): ModelVisual {
@@ -482,20 +486,31 @@ function recentTurnFactor(lastTurnAt: number, now: number): number {
 export function updateCoreMotion(core: CoreState, frameScale: number): void {
   const positionEase = 1 - Math.pow(0.92, frameScale);
   const energyEase = 1 - Math.pow(0.94, frameScale);
+  const energyLevel = energyVisualLevel(core.energy);
+  const motionScale = 0.72 + energyLevel * 2.35;
   core.x += (core.tx - core.x) * positionEase;
   core.y += (core.ty - core.y) * positionEase;
   core.energy += (core.targetEnergy - core.energy) * energyEase;
-  core.pulse += 0.04 * frameScale;
-  core.noisePhase += 0.018 * frameScale;
-  core.ringAngles[0] += RING_CFGS[0].speed * frameScale;
-  core.ringAngles[1] += RING_CFGS[1].speed * frameScale;
+  core.pulse += (0.028 + energyLevel * 0.062) * frameScale;
+  core.noisePhase += (0.012 + energyLevel * 0.034) * frameScale;
+  core.ringAngles[0] += RING_CFGS[0].speed * motionScale * frameScale;
+  core.ringAngles[1] += RING_CFGS[1].speed * motionScale * frameScale;
 }
 
 export function rawCoreRadius(core: CoreState, isSelf: boolean, includePulse = true): number {
   const base = isSelf ? 25 : 14;
-  const growth = Math.sqrt(Math.max(0, core.energy)) * (isSelf ? 0.55 : 0.28) * (core.growthScale ?? 1);
-  const pulse = includePulse ? Math.sin(core.pulse) * 2 : 0;
+  const energyLevel = energyVisualLevel(core.energy);
+  const growth = (
+    Math.sqrt(Math.max(0, core.energy)) * (isSelf ? 0.55 : 0.28) +
+    energyLevel * (isSelf ? 7 : 3.2)
+  ) * (core.growthScale ?? 1);
+  const pulse = includePulse ? Math.sin(core.pulse) * (1.5 + energyLevel * 3.2) : 0;
   return base + growth + pulse;
+}
+
+export function energyVisualLevel(energy: number): number {
+  if (!Number.isFinite(energy) || energy <= 0) return 0;
+  return Math.min(Math.log1p(energy) / Math.log1p(5_000), 1);
 }
 
 export function displayCoreRadius(core: CoreState, isSelf: boolean, viewport: ViewportSize, includePulse = true): number {

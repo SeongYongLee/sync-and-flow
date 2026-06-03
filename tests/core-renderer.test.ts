@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coreActivityAlpha, displayCoreRadius, rawCoreRadius, updateCoreMotion, visualMorphStep, visualTurnIntensity } from "../src/web/core-renderer.js";
+import { coreActivityAlpha, displayCoreRadius, energyVisualLevel, rawCoreRadius, updateCoreMotion, visualMorphStep, visualTurnIntensity } from "../src/web/core-renderer.js";
 import type { CoreState } from "../src/web/core-state.js";
 
 function core(overrides: Partial<CoreState> = {}): CoreState {
@@ -34,8 +34,15 @@ describe("core renderer helpers", () => {
   it("computes larger self radii than peer radii", () => {
     const state = core({ energy: 100 });
 
-    expect(rawCoreRadius(state, true, false)).toBeCloseTo(30.5);
-    expect(rawCoreRadius(state, false, false)).toBeCloseTo(16.8);
+    expect(rawCoreRadius(state, true, false)).toBeCloseTo(34.2929);
+    expect(rawCoreRadius(state, false, false)).toBeCloseTo(18.533);
+  });
+
+  it("maps accumulated energy to a bounded visual level", () => {
+    expect(energyVisualLevel(0)).toBe(0);
+    expect(energyVisualLevel(100)).toBeGreaterThan(0.5);
+    expect(energyVisualLevel(5_000)).toBe(1);
+    expect(energyVisualLevel(50_000)).toBe(1);
   });
 
   it("caps display radius by viewport size", () => {
@@ -53,10 +60,22 @@ describe("core renderer helpers", () => {
     expect(state.x).toBeGreaterThan(0);
     expect(state.y).toBeGreaterThan(0);
     expect(state.energy).toBeGreaterThan(0);
-    expect(state.pulse).toBeCloseTo(0.04);
-    expect(state.noisePhase).toBeCloseTo(0.018);
-    expect(state.ringAngles[0]).toBeCloseTo(0.007);
-    expect(state.ringAngles[1]).toBeCloseTo(-0.01);
+    expect(state.pulse).toBeCloseTo(0.028);
+    expect(state.noisePhase).toBeCloseTo(0.012);
+    expect(state.ringAngles[0]).toBeCloseTo(0.00504);
+    expect(state.ringAngles[1]).toBeCloseTo(-0.0072);
+  });
+
+  it("animates high-energy cores more aggressively than low-energy cores", () => {
+    const low = core({ energy: 40, targetEnergy: 40 });
+    const high = core({ energy: 5_000, targetEnergy: 5_000 });
+
+    updateCoreMotion(low, 1);
+    updateCoreMotion(high, 1);
+
+    expect(high.pulse).toBeGreaterThan(low.pulse);
+    expect(high.noisePhase).toBeGreaterThan(low.noisePhase);
+    expect(Math.abs(high.ringAngles[0])).toBeGreaterThan(Math.abs(low.ringAngles[0]));
   });
 
   it("speeds up visual morphing after recent high-energy turns", () => {

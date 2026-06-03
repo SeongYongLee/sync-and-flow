@@ -15,6 +15,7 @@ import {
 } from "./core-state.js";
 import { ParticleSystem } from "./particles.js";
 import { applySnapshotEvent, applyTurnEvent } from "./turn-events.js";
+import { loadProgress, progressToSnapshot, saveSnapshotProgress, saveTurnProgress } from "./progress.js";
 import type { PeerMeta, PresenceSnapshotMessage, TurnMessage, WorkerToBrowserMessage } from "../shared/protocol.js";
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
@@ -105,11 +106,17 @@ function applyTurn(ownerId: string, event: TurnEvent | TurnMessage) {
   if (seenTurns.has(dedupKey)) return;
   seenTurns.add(dedupKey);
   if (seenTurns.size > 500) seenTurns.delete(seenTurns.values().next().value as string);
-  applyTurnEvent(ownerId, event, { cores, particles, hud, selfId, viewport: viewport(), shouldUpdateHud });
+  if (applyTurnEvent(ownerId, event, { cores, particles, hud, selfId, viewport: viewport(), shouldUpdateHud }) && ownerId === selfId && "type" in event) {
+    const core = cores.get(ownerId);
+    if (core) saveTurnProgress(ownerId, event, core);
+  }
 }
 
 function applySnapshot(ownerId: string, event: SnapshotEvent | PresenceSnapshotMessage) {
-  applySnapshotEvent(ownerId, event, { cores, hud, selfId, viewport: viewport(), shouldUpdateHud });
+  if (applySnapshotEvent(ownerId, event, { cores, hud, selfId, viewport: viewport(), shouldUpdateHud }) && ownerId === selfId && "type" in event) {
+    const core = cores.get(ownerId);
+    if (core) saveSnapshotProgress(ownerId, event, core);
+  }
 }
 
 function shouldUpdateHud(ownerId: string): boolean {
@@ -140,8 +147,8 @@ function onWorkerMessage(message: WorkerToBrowserMessage) {
 
 async function boot() {
   setupMobileQr();
-  setupDiagnostics();
   const { identity, mode } = await getPresenceIdentityResult();
+  setupDiagnostics(identity.userId);
   setupFlowLinkPrompt(mode);
   selfId = identity.userId;
   isViewerOnly = mode !== "local-bridge";
@@ -149,6 +156,13 @@ async function boot() {
     ensureCore({ id: identity.userId, nickname: identity.nickname, color: identity.color });
   }
   layoutCores();
+
+  const storedProgress = loadProgress(selfId);
+  if (storedProgress) {
+    ensureCore({ id: identity.userId, nickname: identity.nickname, color: identity.color });
+    layoutCores();
+    applySnapshot(selfId, progressToSnapshot(storedProgress));
+  }
 
   connectPresence(
     identity,
