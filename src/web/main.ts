@@ -128,7 +128,10 @@ function primaryRenderCoreId(): string {
 }
 
 function updateDemoBadge(): void {
-  demoBadge.hidden = !isDemoFlowVisible();
+  const visible = isDemoFlowVisible();
+  demoBadge.hidden = !visible;
+  const demoNote = document.getElementById("flow-link-demo-note");
+  if (demoNote) demoNote.hidden = !visible;
 }
 
 function isDemoFlowVisible(): boolean {
@@ -205,6 +208,7 @@ function startLocalBridgeMode(identity: PeerMeta): void {
   layoutCores();
   demoBadge.hidden = true;
   document.getElementById("flow-link-card")?.setAttribute("hidden", "");
+  document.getElementById("flow-link-modal")?.setAttribute("hidden", "");
   if (localStreamStarted) return;
   localStreamStarted = true;
   connectStream({

@@ -277,19 +277,43 @@
 
       #flow-link-card {
         position: fixed;
-        left: 24px;
-        bottom: 28px;
+        top: 58px;
+        left: 50%;
+        transform: translateX(-50%);
         z-index: 12;
-        width: min(360px, calc(100vw - 48px));
-        padding: 14px;
-        border: 1px solid rgba(128, 180, 255, 0.22);
+        width: min(390px, calc(100vw - 48px));
+        padding: 15px;
+        border: 1px solid rgba(128, 180, 255, 0.34);
         border-radius: 8px;
-        background: rgba(12, 15, 31, 0.9);
-        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.34);
+        background:
+          linear-gradient(135deg, rgba(128, 180, 255, 0.14), rgba(12, 15, 31, 0) 38%),
+          rgba(12, 15, 31, 0.92);
+        box-shadow:
+          0 18px 70px rgba(0, 0, 0, 0.46),
+          0 0 34px rgba(128, 180, 255, 0.12),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
         backdrop-filter: blur(16px);
+        animation: viewer-card-pulse 3.8s ease-in-out infinite;
       }
 
       #flow-link-card[hidden], #flow-link-modal[hidden] { display: none; }
+
+      @keyframes viewer-card-pulse {
+        0%, 100% {
+          border-color: rgba(128, 180, 255, 0.28);
+          box-shadow:
+            0 18px 70px rgba(0, 0, 0, 0.46),
+            0 0 28px rgba(128, 180, 255, 0.10),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        }
+        50% {
+          border-color: rgba(255, 184, 96, 0.32);
+          box-shadow:
+            0 18px 76px rgba(0, 0, 0, 0.5),
+            0 0 42px rgba(255, 184, 96, 0.13),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+      }
 
       #flow-link-card header {
         display: flex;
@@ -331,6 +355,13 @@
         font-size: 11px;
         line-height: 1.5;
         color: rgba(255, 255, 255, 0.62);
+      }
+
+      #flow-link-card .demo-note {
+        margin-bottom: 12px;
+        border-left: 2px solid rgba(255, 184, 96, 0.45);
+        padding-left: 9px;
+        color: rgba(255, 220, 170, 0.72);
       }
 
       #flow-link-card strong {
@@ -754,6 +785,7 @@
           bottom: auto;
           left: 12px;
           right: 12px;
+          transform: none;
           width: auto;
           max-height: calc(100dvh - 220px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
           overflow: auto;
@@ -904,6 +936,7 @@
         </div>
         <button id="flow-link-dismiss" type="button" aria-label="Hide Flow Link prompt">×</button>
       </header>
+      <p id="flow-link-demo-note" class="demo-note"><strong>Demo Mode</strong> is running now, so this screen is showing sample flow until Flow Link connects.</p>
       <p><strong>Flow Link</strong> connects local Claude/Codex/Pi token activity. Counts and model names are shared; prompts stay private.</p>
       <button id="flow-link-install" class="primary-action" type="button">Install Flow Link</button>
     </section>
