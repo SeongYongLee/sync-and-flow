@@ -21,8 +21,8 @@
 
 ## 사전 결정 사항 (Phase 1 결과 반영)
 
-- Phase 1의 `core/`, `node/`, `server/bridge.ts`, `web/main.ts` 자산은 그대로 재활용.
-- bridge.ts는 기존 SSE를 유지하되 **추가로** Worker WebSocket 으로 turn event를 push.
+- Phase 1의 `core/`, `node/`, `web/main.ts` 자산은 그대로 재활용.
+- 기존 Node `server/bridge.ts` 경로는 Flow Link Tauri native bridge로 대체되었다.
 - Phase 1에서 검증된 turn event 형태(`model`, `delta`, `totals`, `energy`, `timestamp`)를 그대로 wire-format 으로 사용 + `userId`/`nickname`만 attach.
 
 ### 8 개 source 사전 조사 결과 (인터페이스 설계용)
@@ -159,9 +159,6 @@ sync-and-flow/
 │   │   │   └── json-snapshot.ts # ← Phase 2 placeholder
 │   │   ├── session-resolver.ts # (그대로 — Claude 전용, 어댑터 안으로 흡수해도 OK)
 │   │   └── cli.ts             # (그대로)
-│   │
-│   ├── server/
-│   │   └── bridge.ts          # ← 수정: Worker WS publisher 추가 + 활성 source 목록 받음
 │   │
 │   ├── web/
 │   │   ├── main.ts            # ← 수정: 멀티 코어 렌더링
@@ -338,11 +335,11 @@ viewers:     Map<viewerId, { ws, visiblePeers: Set<userId> }>
 - 색상: `userId` 해시 → HSL hue (자기는 보라 고정, 타인은 hue 60~330 분포).
 - HUD: 로컬 사용자 정보만 표시. 타 유저는 코어 옆 닉네임 라벨로.
 
-### `src/server/bridge.ts` (수정)
-- 시작 시 `getOrCreateBridgeIdentity()` (`~/.claude/sync-and-flow-bridge.json` 에 영속화)
-- 기존 SSE 브로드캐스트 유지 (로컬 단독 모드 호환)
-- **추가**: Worker WS publisher 연결 (`ws://localhost:8787/publish`). turn event 를 그대로 publish. 재연결 처리.
-- env: `SYNC_FLOW_WORKER_URL` (default `ws://localhost:8787`)
+### Flow Link Tauri native bridge
+- 시작 시 bridge identity를 `~/.sync-and-flow/identity.json`에 영속화
+- 로컬 SSE 브로드캐스트 유지 (local-only 모드 호환)
+- 원격 presence가 명시된 경우 Worker HTTP publish 연결. turn event를 publish하고 실패 상태를 diagnostics에 표시
+- env: `SYNC_FLOW_WORKER_URL`, `VITE_SYNC_FLOW_WORKER_URL`, 또는 빌드 타임 `FLOW_LINK_DEFAULT_WORKER_URL`
 
 ---
 
@@ -375,7 +372,7 @@ viewers:     Map<viewerId, { ws, visiblePeers: Set<userId> }>
 10. `src/shared/nickname.ts` + 테스트
 11. `src/web/identity.ts` + `src/web/ws-client.ts`
 12. `src/web/main.ts` 멀티 코어 리팩터 (1코어 → N코어). turn event 의 `source` 별 시각 차별화 (예: Claude=원형 입자, Codex=다이아몬드 입자 또는 색조 차이).
-13. `src/server/bridge.ts` Worker publisher + 활성 source 콘솔 로그 (`[bridge] active sources: claude, codex`)
+13. Flow Link Tauri native bridge Worker publisher + diagnostics 활성 source 표시
 14. **2-tab 검증**: 같은 Mac 에서 다른 브라우저 탭 두 개로 다른 identity 띄우고, bridge 가 둘 다에게 broadcast 되는지 확인. Claude / Codex 동시 세션을 띄워 각 source 가 별도 turn event 로 흘러가는지 확인.
 15. **2-Mac 검증** (있으면): 다른 머신에서 wrangler dev 미러 어렵 → 한 Mac 의 Worker 에 다른 Mac 의 bridge 가 LAN IP 로 붙도록 시도. 어려우면 시뮬레이션 (로컬 bridge 2개를 다른 identity 로 띄움).
 16. 함정 처리 + README Phase 2 섹션 + Phase 2.5+ 우선순위 (Cursor → cursor-agent → Copilot → Gemini → Antigravity → Claude Desktop) 명시
@@ -498,7 +495,7 @@ viewers:     Map<viewerId, { ws, visiblePeers: Set<userId> }>
 - `src/core/pricing.ts` (provider 분리)
 - `src/core/pricing-table.json` (openai 모델 스텁 단가)
 - `src/node/watcher.ts` (multi-source 지원)
-- `src/server/bridge.ts`
+- `apps/flow-link/src-tauri/src/lib.rs`
 - `src/web/main.ts`
 - `src/web/runtime-url.ts`
 - `src/web/stream-client.ts`
