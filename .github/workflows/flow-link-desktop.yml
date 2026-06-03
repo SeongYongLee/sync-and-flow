@@ -3,6 +3,10 @@ name: Flow Link Desktop
 on:
   workflow_dispatch:
     inputs:
+      release_tag:
+        description: "Optional GitHub Release tag to create/update, for example flow-link-v0.1.0"
+        required: false
+        default: ""
       worker_url:
         description: "Optional Worker WebSocket URL baked into Flow Link"
         required: false
@@ -15,6 +19,8 @@ jobs:
   build:
     name: Build ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     env:
       FLOW_LINK_DEFAULT_WORKER_URL: ${{ github.event.inputs.worker_url || vars.FLOW_LINK_DEFAULT_WORKER_URL || '' }}
     strategy:
@@ -92,3 +98,13 @@ jobs:
           name: ${{ matrix.artifact-name }}
           path: ${{ matrix.artifact-path }}
           if-no-files-found: error
+
+      - name: Upload installers to GitHub Release
+        if: github.event_name == 'push' || inputs.release_tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          name: Flow Link ${{ inputs.release_tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          files: ${{ matrix.artifact-path }}
+          fail_on_unmatched_files: true

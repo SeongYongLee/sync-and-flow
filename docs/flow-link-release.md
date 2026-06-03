@@ -61,6 +61,11 @@ Use the verified `wss://<worker-host>?token=<publish-token>` value as the deskto
 
 Run the `Flow Link Desktop` GitHub Actions workflow with `worker_url` left empty for the default local-only build. Set `worker_url` to the verified Worker URL with publish token only when building a remote presence variant.
 
+The workflow always uploads installer artifacts. It also creates or updates a GitHub Release when either:
+
+- a tag matching `flow-link-v*` is pushed, or
+- the manual workflow input `release_tag` is set, for example `flow-link-v0.1.0`.
+
 Expected artifacts:
 
 - macOS: `apps/flow-link/src-tauri/target/release/bundle/dmg/*.dmg`
@@ -89,11 +94,17 @@ Windows public distribution requires code signing to reduce SmartScreen friction
 
 ## 6. Publish
 
-Upload artifacts to the download host and set:
+After the desktop workflow publishes a GitHub Release, set:
 
 ```text
 VITE_FLOW_LINK_MAC_DOWNLOAD_URL
 VITE_FLOW_LINK_WINDOWS_DOWNLOAD_URL
+```
+
+Example:
+
+```text
+VITE_FLOW_LINK_MAC_DOWNLOAD_URL=https://github.com/SeongYongLee/sync-and-flow/releases/download/flow-link-v0.1.0/Flow-Link.dmg
 ```
 
 Then verify:
