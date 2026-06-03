@@ -17,7 +17,7 @@ export function setupFlowLinkPrompt(mode: "local-bridge" | "browser-only") {
 
   card.removeAttribute("hidden");
   worker.textContent = resolveOptionalWorkerWatchUrl() ?? resolveBridgeUrl("/events");
-  setupDownloadLink(macDownload, "mac", { fallback: "/downloads/Flow-Link.dmg" });
+  setupDownloadLink(macDownload, "mac", { fallback: null });
   setupDownloadLink(windowsDownload, "windows", { fallback: null });
   markRecommendedDownload(detectPlatform());
 

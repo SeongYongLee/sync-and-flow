@@ -25,6 +25,8 @@ Recommended GitHub repository variables:
 - `VITE_SYNC_FLOW_VIEWER_URL` - optional canonical viewer URL
 - `VITE_SYNC_FLOW_WORKER_URL` - optional, leave empty for local-only releases
 
+Do not use `/downloads/Flow-Link.dmg` as a production Pages URL. Publish installer files as GitHub Release assets first, then set the download URL variables to those release asset URLs.
+
 Manual local deploy after `pnpm build`:
 
 ```bash

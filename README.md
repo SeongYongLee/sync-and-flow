@@ -151,6 +151,8 @@ VITE_SYNC_FLOW_WORKER_URL
 
 Leave `VITE_SYNC_FLOW_WORKER_URL` empty for local-only releases.
 
+Do not serve installer binaries from Cloudflare Pages. Publish DMG/EXE/MSI files as GitHub Release assets and point the download variables at those release URLs. Large installer files are not a good fit for the Pages static asset pipeline.
+
 Manual Pages deploy after `pnpm build`:
 
 ```bash
