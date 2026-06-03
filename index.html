@@ -24,9 +24,9 @@
         position: fixed;
         top: 24px;
         left: 24px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
+        width: min(360px, calc(100vw - 48px));
+        display: grid;
+        gap: 10px;
         pointer-events: none;
         z-index: 10;
       }
@@ -39,13 +39,14 @@
       }
 
       #hud .value {
-        font-size: 15px;
+        min-width: 0;
+        font-size: 13px;
         color: rgba(200, 160, 255, 0.95);
         letter-spacing: 0.04em;
       }
 
       #hud .value.subtle {
-        max-width: min(340px, calc(100vw - 48px));
+        max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -53,10 +54,43 @@
         color: rgba(128, 220, 255, 0.82);
       }
 
+      #hud .primary .value {
+        display: block;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 16px;
+        color: rgba(218, 190, 255, 0.96);
+      }
+
       #hud .row {
         display: flex;
         flex-direction: column;
         gap: 2px;
+      }
+
+      #hud .summary {
+        display: grid;
+        gap: 4px;
+      }
+
+      #hud .metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      #hud .metric {
+        min-width: 0;
+      }
+
+      #hud .metric .value {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: rgba(255, 255, 255, 0.72);
       }
 
       #status {
@@ -649,29 +683,28 @@
     <canvas id="canvas"></canvas>
 
     <div id="hud">
-      <div class="row">
-        <span class="label">Model</span>
+      <div class="row primary">
+        <span class="label">Current</span>
         <span class="value" id="model">—</span>
       </div>
-      <div class="row">
-        <span class="label">Planet</span>
+      <div class="summary">
         <span class="value" id="planet">Drift · neutral</span>
-      </div>
-      <div class="row">
         <span class="label">Mix</span>
         <span class="value subtle" id="planet-mix">Drift</span>
       </div>
-      <div class="row">
-        <span class="label">Viewers</span>
-        <span class="value subtle" id="viewers">0 viewers</span>
-      </div>
-      <div class="row">
-        <span class="label">Sessions</span>
-        <span class="value" id="turns">0 turns</span>
-      </div>
-      <div class="row">
-        <span class="label">Output Tokens</span>
-        <span class="value" id="output-tokens">0</span>
+      <div class="metrics">
+        <div class="metric">
+          <span class="label">Viewers</span>
+          <span class="value" id="viewers">0</span>
+        </div>
+        <div class="metric">
+          <span class="label">Turns</span>
+          <span class="value" id="turns">0</span>
+        </div>
+        <div class="metric">
+          <span class="label">Output</span>
+          <span class="value" id="output-tokens">0</span>
+        </div>
       </div>
     </div>
 

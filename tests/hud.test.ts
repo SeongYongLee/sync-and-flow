@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatModelLabel, resolveStatusView } from "../src/web/hud.js";
+import { compactCount, formatModelLabel, resolveStatusView } from "../src/web/hud.js";
 
 describe("resolveStatusView", () => {
   it("prioritizes multi-presence over local stream", () => {
@@ -25,6 +25,12 @@ describe("resolveStatusView", () => {
 
   it("does not render an empty source/model snapshot as a colon", () => {
     expect(formatModelLabel("", "")).toBe("—");
-    expect(formatModelLabel("codex", "gpt-5.5")).toBe("codex:gpt-5.5");
+    expect(formatModelLabel("codex", "gpt-5.5")).toBe("codex / gpt-5.5");
+  });
+
+  it("compacts large HUD counts", () => {
+    expect(compactCount(9999)).toBe("9,999");
+    expect(compactCount(12_400)).toBe("12.4K");
+    expect(compactCount(1_200_000)).toBe("1M");
   });
 });

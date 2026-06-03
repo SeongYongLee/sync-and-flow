@@ -36,13 +36,13 @@ export class HudController {
     this.planet.textContent = `${meta.label} · ${meta.role}`;
     this.planet.title = meta.description;
     this.planetMix.textContent = mixLabel || meta.label;
-    this.turns.textContent = `${turns} turns`;
-    this.output.textContent = outputTokens.toLocaleString();
+    this.turns.textContent = compactCount(turns);
+    this.output.textContent = compactCount(outputTokens);
     this.energy.textContent = `${Math.round(energy).toLocaleString()} flow`;
   }
 
   updateViewerCount(count: number): void {
-    this.viewers.textContent = `${count.toLocaleString()} viewer${count === 1 ? "" : "s"}`;
+    this.viewers.textContent = compactCount(count);
   }
 
   private renderStatus(detail: string): void {
@@ -54,7 +54,17 @@ export class HudController {
 }
 
 export function formatModelLabel(source: string, model: string): string {
-  return source && model ? `${source}:${model}` : "—";
+  return source && model ? `${source} / ${model}` : "—";
+}
+
+export function compactCount(value: number): string {
+  if (!Number.isFinite(value)) return "0";
+  const rounded = Math.max(0, Math.round(value));
+  if (rounded < 10_000) return rounded.toLocaleString();
+  return Intl.NumberFormat("en", {
+    notation: "compact",
+    maximumFractionDigits: rounded < 1_000_000 ? 1 : 0,
+  }).format(rounded);
 }
 
 export function resolveStatusView(presenceState: PresenceStatus, streamState: StreamStatus): StatusView {
