@@ -1,311 +1,249 @@
-# Sync and Flow — PoC 기술 검증 결과
+# Sync and Flow
 
-> AI 응답 대기 시간을 게임 자원으로 전환하는 멀티디바이스 게임. PoC 단계의 산출물은 코드가 아니라 **결정 문서**다.
+Sync and Flow turns local AI coding activity into a visual flow layer. The current product shape is local-first: Flow Link reads local Claude Code, Codex CLI, and Pi session logs through a Tauri native bridge, then the web viewer reacts through a localhost SSE stream.
 
-## AI 작업 인계
+Remote spectators and mobile viewing are optional presence features. They require the Cloudflare Worker room to be enabled explicitly.
 
-AI 세션을 재개할 때는 먼저 [AGENTS.md](AGENTS.md)를 읽고, 거기에 적힌 Obsidian 프로젝트 문서를 확인한다. 최신 아키텍처, 운영 절차, 진행 중 변경사항은 Obsidian Vault의 `Projects/Sync and Flow/00_Index.md`에서 관리한다.
-
----
-
-## 검증 결과 요약
-
-| # | 검증 항목 | 결과 | 비고 |
-|---|---|---|---|
-| 1 | JSONL 갱신 메커니즘 | ⬜ 미측정 | 라이브 세션으로 검증 필요 |
-| 2 | 부분 데이터 vs 완료 후 한 줄 | ⬜ 미측정 | 라이브 세션으로 검증 필요 |
-| 3 | 메시지 타입 커버리지 | ✅ 통과 | parse error 0건, 내부 일관성 100% |
-| 4 | 모델별 비용 환산 | ✅ 부분 통과 | ccusage cross-check 필요 |
-
-### 검증 3 — 실세션 replay 결과
-
-```
-파일: d04f9409 (293 lines, 682KB)
-  Parse errors:  0  ✅
-  Non-assistant: 194
-  Synthetic:     0
-  Deduped:       43  (msg_id 기반 중복 제거)
-  Unique turns:  56
-
-  claude-sonnet-4-6: 45 turns, $1.594
-  claude-opus-4-7:   11 turns, $2.263
-  Grand total:       $3.858
-
-파일: 081f66c2 (348 lines, 대형)
-  Parse errors:  0  ✅
-  Deduped:       39
-  Unique turns:  57
-
-  claude-opus-4-6:   33 turns, $4.671
-  claude-sonnet-4-6: 20 turns, $0.816
-  claude-opus-4-7:    4 turns, $1.050
-  Grand total:       $6.537
-```
-
----
-
-## 검증 1·2 실행 방법 (라이브)
-
-```bash
-# 터미널 A — 라이브 watcher 실행
-pnpm cli --cwd /path/to/your/project
-
-# 터미널 B — 새 Claude 세션에서 작업 진행
-# 터미널 A에서 턴 완료 직후 토큰 변화 출력 확인
-
-# 검증 1 (append vs rewrite)
-wc -c <session.jsonl>  # 이전 크기
-# 한 턴 진행
-wc -c <session.jsonl>  # size 증가 여부
-stat -f '%i %m' <session.jsonl>  # inode 동일 여부
-```
-
----
-
-## 발견된 함정 체크리스트
-
-- [x] **msg_id 중복** — dedup.ts LRU로 처리 + 테스트
-- [x] **iterations 배열** — parse.ts에서 무시 (주석 명시) + 테스트
-- [x] `<synthetic>` 모델 — parse.ts 필터
-- [x] 불완전 라인 — tail.ts fragment 보관
-- [x] 세션 전환(새 jsonl) — watcher `add` 이벤트 + 통합 테스트
-- [x] UUID 패턴 필터 — non-session 파일 무시 + 통합 테스트
-- [ ] macOS FSEvents 지연 (chokidar 사용으로 완화, 실측 미완)
-- [ ] 경로 인코딩 엣지 케이스 (한글 경로 등 미테스트)
-- [ ] backfill 폭주 — `--backfill` 플래그로 분리됨, 실측 미완
-- [ ] 검증 2 실시간성 결론 → **후속 작업**
-
----
-
-## 후속 작업 (Phase 2로 넘어가기 전)
-
-검증 2 결과에 따라 분기:
-
-**만약 JSONL이 "완료 후 한 줄"이라면** (예상):
-→ 실시간 입자 효과를 위해 **Claude Code CLI hook** 보조 채널 필요
-- `PreToolUse`: 도구 호출 시작 시점
-- `Stop`: 응답 완료 시점
-- hook → 로컬 소켓 → 게임 클라이언트
-
-**만약 스트리밍 중 부분 데이터가 쓰인다면**:
-→ JSONL 단독으로도 실시간성 확보 가능
-
----
-
-## 빠른 시작
+## Quick Start
 
 ```bash
 pnpm install
-pnpm test                             # 단위 + 통합 테스트 (25개)
-pnpm replay ~/.claude/projects/.../{session}.jsonl  # 기존 세션 분석
-pnpm cli --cwd /your/project          # 라이브 모니터링
+pnpm dev:phase2
 ```
 
-## Phase 2 로컬 멀티코어 실행
+`pnpm dev:phase2` starts:
 
-Flow Link 데스크톱 앱은 자체 Tauri native bridge를 띄워 로컬 Claude Code, Codex CLI, Pi 활동을 읽는다. 사용자는 별도 백그라운드 프로세스나 다운로드 스크립트를 실행하지 않는다.
+- Vite web viewer on `http://127.0.0.1:5175`
+- Flow Link Tauri desktop app
 
-기본 개발/배포 모드는 local-only다. Flow Link 앱이 로컬 bridge를 띄우고, 웹 뷰어는 `localhost` SSE로 이 컴퓨터의 Claude/Codex/Pi 활동을 표시한다. 모바일/다른 Mac 관전은 local-only bridge로 동작하지 않으므로 Cloudflare Worker presence를 `?worker=...`, `VITE_SYNC_FLOW_WORKER_URL`, 또는 `SYNC_FLOW_WORKER_URL`로 명시해야 한다.
+Generate a Claude, Codex, or Pi turn after the app opens. The viewer should update the model, planet, token, and flow energy UI. Open `DIAGNOSTICS` to inspect local progress and bridge status.
 
-진행상황은 브라우저 `localStorage`에 identity별로 저장한다. 저장 범위는 누적 totals, source/provider/model별 totals, 마지막 source/model, energy, planet mix/history이며, 원문 프롬프트/응답과 raw JSONL은 저장하지 않는다. Google login/클라우드 sync는 이 local progress 모델이 안정된 뒤 별도 단계로 붙인다.
-
-화면 오른쪽 위 `DIAGNOSTICS`에서 저장된 local progress 요약을 확인하고 `Reset Progress`로 현재 identity의 로컬 저장값을 초기화할 수 있다.
-
-로컬 동시 실행 상태 확인:
+If Tauri cannot find `cargo`, make sure Rust is on your shell path:
 
 ```bash
-pnpm dev:phase2
-pnpm smoke:web
+export PATH="$HOME/.cargo/bin:$PATH"
 ```
 
-원격 presence를 선택적으로 확인할 때는 Worker를 함께 실행한다. 코드 변경 후 Worker Durable Object 로직은 이미 떠 있는 `pnpm dev:worker` 프로세스에 남아 있을 수 있으므로 Worker를 재시작한다.
+## Local Progress
 
-`pnpm smoke:sync`는 같은 identity를 가진 두 브라우저 viewer를 열고, 하나의 Worker publish 이벤트가 두 화면에 같은 planet/HUD 상태로 도착하는지 확인한다.
+Progress is saved per identity in browser `localStorage`.
 
-지원하는 로컬 로그 루트는 명시적으로 제한한다.
+Saved:
+
+- total turns and token totals
+- source/provider/model totals
+- last source and model
+- energy
+- planet mix and recent planet history
+
+Not saved:
+
+- prompts
+- responses
+- raw JSONL
+- full local file contents
+
+Use `DIAGNOSTICS` > `Reset Progress` to clear the current identity's local progress.
+
+## Local Sources
+
+Flow Link scans explicit local roots only:
 
 - Claude Code: `~/.claude/projects`
 - Codex CLI: `~/.codex/sessions`
 - Pi: `~/.pi/agent/sessions`
 
-Pi는 `PI_CODING_AGENT_DIR` 또는 `PI_CODING_AGENT_SESSION_DIR` 환경 변수가 설정되어 있으면 그 경로를 따른다. `~/Library/Application Support` 같은 넓은 시스템 폴더는 자동 스캔하지 않는다.
-Pi 로그는 `type: "message"` assistant entry의 `message.usage.input/output/cacheRead` 형식과 Claude/Codex 호환 usage 형식을 모두 turn으로 처리한다.
+Pi overrides:
 
-개발 중 단독 데스크톱 앱을 확인하려면:
+```bash
+PI_CODING_AGENT_DIR=/path/to/pi/agent
+PI_CODING_AGENT_SESSION_DIR=/path/to/pi/sessions
+```
+
+Broad system folders such as `~/Library/Application Support` are not auto-scanned.
+
+## Development Commands
+
+Local app development:
+
+```bash
+pnpm dev:phase2
+```
+
+Separate terminals:
 
 ```bash
 pnpm dev:desktop-web
 pnpm flow-link:desktop:dev
 ```
 
-`Flow Link` 앱은 개발용 웹 서버를 직접 소유하지 않는다. 앱을 종료해도 `pnpm dev:desktop-web`으로 띄운 viewer는 계속 살아 있어야 한다.
-
-LAN 안의 다른 컴퓨터 활동까지 보려면 원격 presence 모드로 한 대에서 Worker를 먼저 실행한다.
+Verification:
 
 ```bash
-pnpm dev:worker
-SYNC_FLOW_WORKER_URL=ws://127.0.0.1:8787 VITE_SYNC_FLOW_WORKER_URL=ws://127.0.0.1:8787 pnpm flow-link:desktop:dev
+pnpm test
+pnpm typecheck
+pnpm typecheck:worker
+pnpm build
+cargo test --manifest-path apps/flow-link/src-tauri/Cargo.toml -- --test-threads=1
 ```
 
-같은 Mac에서 한 번에 실행:
+The native bridge tests use local TCP listeners. In restricted environments, run them outside the sandbox or with serialized test threads.
+
+## Optional Remote Presence
+
+Remote presence lets other browsers watch a publisher through the Cloudflare Worker room. It is off by default.
+
+Local Worker:
 
 ```bash
-pnpm dev:phase2
+pnpm dev:phase2:presence
 ```
 
-2대 Mac 데모:
+LAN Worker:
 
 ```bash
-# Worker와 Flow Link 앱을 띄우는 Mac
-VITE_SYNC_FLOW_WORKER_URL=ws://<worker-lan-ip>:8787 pnpm dev:phase2:lan
-
-# Claude/Codex/Pi 활동을 publish할 Mac마다 Flow Link 앱 실행
-VITE_SYNC_FLOW_WORKER_URL=ws://<worker-lan-ip>:8787 pnpm flow-link:desktop:dev
-
-# browser-only viewer Mac
-http://<worker-lan-ip>:5175
+VITE_SYNC_FLOW_WORKER_URL=ws://<lan-ip>:8787 pnpm dev:phase2:lan
 ```
 
-### 모바일/다른 Mac 관전 E2E 체크리스트
-
-목표는 **한 Mac의 Flow Link 앱이 Claude/Codex/Pi turn을 Worker에 publish하고, 모바일 또는 다른 Mac 브라우저가 viewer-only로 그 turn을 보는 것**이다. viewer-only 기기에는 Flow Link 앱을 설치하거나 실행하지 않아도 된다.
-
-1. Worker와 웹 서버를 LAN으로 연다.
-
-```bash
-pnpm dev:worker:lan
-pnpm dev:lan
-```
-
-한 터미널로 실행하려면:
-
-```bash
-VITE_SYNC_FLOW_WORKER_URL=ws://<worker-lan-ip>:8787 pnpm dev:phase2:lan
-```
-
-2. Claude/Codex 활동을 공유할 Mac에서 Flow Link 앱을 Worker URL과 함께 실행한다.
-
-```bash
-SYNC_FLOW_WORKER_URL=ws://<worker-lan-ip>:8787 VITE_SYNC_FLOW_WORKER_URL=ws://<worker-lan-ip>:8787 pnpm flow-link:desktop:dev
-```
-
-3. viewer 기기에서 아래 URL을 연다.
+Viewer URL:
 
 ```text
-http://<worker-lan-ip>:5175/?worker=ws://<worker-lan-ip>:8787
+http://<lan-ip>:5175/?worker=ws://<lan-ip>:8787
 ```
 
-4. 모바일은 데스크톱 화면의 `MOBILE QR` 버튼을 사용할 수 있다. Tauri 앱에서 처음 누르면 `Mac LAN IP` 입력란이 보이고, QR은 `http://<worker-lan-ip>:5173/?worker=ws://<worker-lan-ip>:8787&bridgePaused=1` 형태의 viewer-only URL을 만든다. Worker URL 없이 local-only로 실행 중이면 모바일 QR은 생성되지 않는다.
+Mobile QR only works when remote presence is enabled. In local-only mode, the desktop bridge is bound to localhost and cannot be reached by a phone.
 
-5. 공유 Mac에서 Claude, Codex, 또는 Pi turn을 하나 발생시킨다. viewer 화면에서 roster가 잡히고 turn 이벤트가 들어오면 다른 코어에 입자 변화가 보여야 한다.
+For a public Worker deployment, configure a publish token and give the token only to publishers:
 
-검증 포인트:
+```bash
+wrangler secret put SYNC_FLOW_PUBLISH_TOKEN --config worker/wrangler.toml
+pnpm release:worker:deploy
+pnpm e2e:worker-publish 'wss://<worker-host>?token=<publish-token>'
+```
 
-- Worker health: `http://<worker-lan-ip>:8787/health`가 `{"ok":true,"service":"sync-and-flow-worker"}`를 반환해야 한다.
-- 웹과 앱을 동시에 켰는데 상태가 다르면 Worker를 먼저 재시작한 뒤 두 화면을 새로고침한다. 같은 Mac의 앱/웹은 같은 bridge identity를 쓰며, Worker는 같은 userId의 여러 viewer를 동시에 유지한다.
-- 웹 접속: 다른 Mac/모바일에서 `http://<worker-lan-ip>:5175/`가 열려야 한다. 연결 거부면 `pnpm dev:desktop-web` 또는 `pnpm dev:phase2:lan`이 LAN host로 떠 있지 않은 상태다.
-- publish 상태: Flow Link 메뉴바 `Diagnostics`에서 `scanRoots`가 `~/.claude/projects`, `~/.codex/sessions`, `~/.pi/agent/sessions`를 표시해야 한다. `sourceRoots`에서 사용하는 source의 `root/logDir`가 `ok`이고, turn 이후 `lastWorkerPublishAt`이 채워져야 한다.
-- publish 실패: `lastWorkerError`가 있으면 Worker URL, 방화벽, 같은 Wi-Fi 여부, VPN/프라이빗 릴레이를 먼저 확인한다.
-- viewer-only 한계: 모바일/다른 Mac 브라우저만 연 경우 그 기기의 Claude/Codex 활동은 publish되지 않는다. 해당 기기의 활동도 공유하려면 그 기기에도 Flow Link 앱이 필요하다.
+Browser viewer and QR URLs strip the publish token before subscribing.
 
-모바일에서 Mac 활동을 보려면 먼저 Worker presence를 켠 뒤 데스크톱 화면의 `MOBILE QR` 버튼을 눌러 QR 코드를 표시하고 휴대폰 카메라로 스캔한다. `localhost`로 접속 중이면 버튼을 누를 때 Mac의 LAN IP를 입력해야 한다.
+## Deployment
 
-실제 서비스 배포에서는 QR이 현재 HTTPS origin을 그대로 사용한다. 예를 들어 `https://app.example.com`에서 QR을 만들면 모바일도 같은 URL을 연다. Worker URL은 자동 추론하지 않으며, 원격 presence를 켤 때만 `?worker=wss://<worker-host>` 쿼리나 빌드 환경변수를 사용한다.
+Recommended hosting:
 
-주의:
+- Cloudflare Pages for the static web viewer
+- GitHub Releases for Flow Link installers
+- Cloudflare Worker only for opt-in remote presence
 
-- 다른 Mac에서는 `localhost`가 자기 자신을 가리키므로 반드시 Worker를 띄운 Mac의 LAN IP를 쓴다.
-- 공개 Worker 배포에서는 `SYNC_FLOW_PUBLISH_TOKEN`을 설정하고, Flow Link publisher용 Worker URL에 같은 값을 `?token=...`으로 붙인다. 브라우저 viewer/QR URL에는 publish token을 넣지 않는다.
-- 다른 Mac은 보기만 할 경우 browser만 열면 된다. 그 Mac의 Claude/Codex 활동을 상대에게 보내려면 그 Mac에서도 Flow Link 앱을 실행해야 한다.
-- Worker가 꺼져도 Flow Link 앱은 Tauri native bridge를 통해 자기 컴퓨터의 local turn은 계속 표시한다.
-- `/health`에서 `workerUrl`, `identity`, `sources`를 확인할 수 있다.
+Cloudflare Pages is deployed by [.github/workflows/pages.yml](.github/workflows/pages.yml).
 
-## Flow Link Desktop App
+Required GitHub secrets:
 
-`apps/flow-link` contains the Tauri desktop app.
+```text
+CLOUDFLARE_API_TOKEN
+CLOUDFLARE_ACCOUNT_ID
+```
 
-Current scope:
+Recommended GitHub repository variables:
 
-- Reuse the existing web UI inside a desktop window.
-- Start and own the local native bridge inside the Tauri backend.
-- Read Claude/Codex/Pi session logs locally and expose token events to the web UI.
-- Prepare for macOS menu bar and Windows tray support.
+```text
+VITE_FLOW_LINK_MAC_DOWNLOAD_URL
+VITE_FLOW_LINK_WINDOWS_DOWNLOAD_URL
+VITE_SYNC_FLOW_VIEWER_URL
+VITE_SYNC_FLOW_WORKER_URL
+```
 
-Current shell behavior:
+Leave `VITE_SYNC_FLOW_WORKER_URL` empty for local-only releases.
 
-- Closing the desktop window hides it instead of quitting.
-- Tray/menu bar menu can reopen the window or quit Flow Link.
-- `Start Sharing` and `Pause Sharing` control the Tauri-owned bridge.
+Manual Pages deploy after `pnpm build`:
+
+```bash
+CLOUDFLARE_API_TOKEN=<token> CLOUDFLARE_ACCOUNT_ID=<account-id> pnpm release:pages:deploy
+```
+
+Expected default Pages URL:
+
+```text
+https://sync-and-flow.pages.dev
+```
+
+## Flow Link Desktop
+
+The desktop app lives in `apps/flow-link`.
+
+Responsibilities:
+
+- start and own the local native bridge
+- read Claude/Codex/Pi session logs
+- expose local turn events to the web UI over SSE
+- publish to Worker only when a Worker URL is configured
 
 Commands:
 
 ```bash
 pnpm flow-link:desktop:dev
-pnpm flow-link:desktop:build
+pnpm flow-link:desktop:build:mac
 pnpm flow-link:desktop:build:windows
 ```
 
-Browser download URLs:
+Release installers are built by [.github/workflows/flow-link-desktop.yml](.github/workflows/flow-link-desktop.yml).
+
+Public macOS distribution requires Developer ID signing and notarization. Public Windows distribution requires code signing to reduce SmartScreen friction.
+
+## Architecture
 
 ```text
-VITE_FLOW_LINK_MAC_DOWNLOAD_URL      # default: /downloads/Flow-Link.dmg
-VITE_FLOW_LINK_WINDOWS_DOWNLOAD_URL  # hidden until configured
+apps/flow-link/          Tauri desktop shell and native bridge
+src/web/                 Vite browser viewer, HUD, renderer, local progress
+src/core/                shared parsing, pricing, aggregation types
+src/node/                PoC CLI and Node log adapters
+src/shared/              wire protocol and planet state
+worker/src/              optional Cloudflare Worker presence room
+tests/                   TypeScript regression tests
 ```
 
-When the web viewer cannot find a local bridge, it shows OS-specific Flow Link download links. The downloaded installer should install the desktop app itself; the app owns the local bridge on macOS and Windows.
+Runtime flow:
 
-Release builds:
+```text
+Claude/Codex/Pi JSONL
+  -> Flow Link native bridge
+  -> localhost SSE /events
+  -> web viewer
+  -> localStorage progress
+```
 
-- Run the `Flow Link Desktop` GitHub Actions workflow manually with `workflow_dispatch`, or push a tag like `flow-link-v0.1.0`.
-- macOS artifacts are uploaded from `apps/flow-link/src-tauri/target/release/bundle/dmg/*.dmg`.
-- Windows artifacts are uploaded from `apps/flow-link/src-tauri/target/release/bundle/nsis/*.exe` and `apps/flow-link/src-tauri/target/release/bundle/msi/*.msi`.
-- Publish those artifacts to the URLs configured by `VITE_FLOW_LINK_MAC_DOWNLOAD_URL` and `VITE_FLOW_LINK_WINDOWS_DOWNLOAD_URL`.
-- macOS local builds produce and copy `public/downloads/Flow-Link.dmg`.
-- Windows installers must be built on Windows. The local macOS command intentionally stops with an explanation instead of pretending to produce NSIS/MSI artifacts.
+Optional presence flow:
 
-Prerequisites:
+```text
+Flow Link publisher
+  -> Worker /publish
+  -> Worker /watch
+  -> remote browser viewers
+```
 
-- Rust toolchain from `https://rustup.rs`
-- Tauri OS prerequisites from `https://tauri.app/start/prerequisites/`
-- Windows builds should be produced on Windows, for example with Tauri's NSIS or MSI bundle target.
-- Public macOS distribution requires Developer ID signing and notarization. Local ad-hoc signed DMGs are acceptable for LAN testing, but not for a polished public install flow.
-- Public Windows distribution requires code signing to reduce SmartScreen/Defender friction.
+## Security Boundary
 
-Release checklist:
+- Local prompts and responses are not sent to the Worker.
+- Local progress stores summary statistics only.
+- The native bridge is localhost-bound by default.
+- Remote presence is opt-in and requires an explicit Worker URL.
+- Publish tokens are for publishers only; browser viewer URLs should not include them.
 
-1. Run `pnpm test`, `pnpm build`, and `cargo test --manifest-path apps/flow-link/src-tauri/Cargo.toml`.
-2. Build macOS with `pnpm flow-link:desktop:build:mac`. Add `FLOW_LINK_DEFAULT_WORKER_URL=wss://<worker-host>` only for an opt-in remote presence build.
-3. Build Windows through the `Flow Link Desktop` GitHub Actions workflow or a Windows machine.
-4. If remote presence is enabled, verify Worker publish/watch with `pnpm e2e:worker-publish wss://<worker-host>`.
-5. Publish the DMG/EXE/MSI and set `VITE_FLOW_LINK_MAC_DOWNLOAD_URL` / `VITE_FLOW_LINK_WINDOWS_DOWNLOAD_URL`.
+## AI Handoff
+
+When resuming AI work, read [AGENTS.md](AGENTS.md) first. The project memory index is maintained in the external Obsidian vault at `Projects/Sync and Flow/00_Index.md`.
+
+## Historical PoC Notes
+
+The original PoC validated JSONL parsing, duplicate handling, aggregation, and model pricing against real Claude session logs. Useful regression points from that phase:
+
+- `msg_id` duplicates are handled with LRU deduplication.
+- `iterations` arrays are ignored intentionally.
+- `<synthetic>` models are filtered.
+- incomplete JSONL lines are buffered by the tail driver.
+- session file switching is covered by watcher tests.
+
+Older replay and CLI tools remain available:
+
+```bash
+pnpm replay ~/.claude/projects/.../{session}.jsonl
+pnpm cli --cwd /your/project
+```
 
 Detailed release steps live in [docs/flow-link-release.md](docs/flow-link-release.md).
-
-보안 경계:
-
-- Flow Link는 Claude/Codex/Pi 로그를 로컬에서 읽고 기본적으로 로컬 bridge로만 표시한다.
-- 진행상황 저장은 로컬 브라우저 storage에 요약 통계만 남긴다.
-- 원격 presence를 켠 경우에도 Worker에는 원문 프롬프트/응답을 보내지 않는다.
-- 전송 payload는 익명 identity, source/provider/model, token delta/totals, energy, timestamp로 제한한다.
-- 네트워크 대상은 local bridge이며, 원격 presence를 명시적으로 켠 경우 앱이 연결한 Worker URL이 추가된다.
-- 공유 중지는 tray/menu bar의 `Pause Sharing`으로 한다.
-
----
-
-## 아키텍처
-
-```
-src/core/        순수 TS (노드/브라우저 공용)
-  types.ts       Usage, ExtractedTurn, RunningTotals
-  parse.ts       라인 → ExtractedTurn | null
-  dedup.ts       msg_id LRU 중복 제거
-  pricing.ts     모델별 비용 계산
-  aggregate.ts   모델별 누적 + 이벤트 발행
-  paths.ts       cwd ↔ 인코딩 경로
-
-src/node/        Node.js 어댑터
-  tail.ts        offset 기반 incremental read
-  sources/       다중 source registry + jsonl tail driver
-  session-resolver.ts  cwd → 최신 jsonl 경로
-  cli.ts         PoC CLI
-```
