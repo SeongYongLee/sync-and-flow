@@ -2,6 +2,7 @@ export interface ParticleTarget {
   id: string;
   x: number;
   y: number;
+  absorbRadius?: number;
 }
 
 export interface ParticleSpawnOptions {
@@ -24,6 +25,11 @@ interface Particle {
   pull: number;
   targetId: string;
 }
+
+const MIN_ABSORB_RADIUS = 12;
+const ABSORB_RADIUS_SCALE = 0.72;
+const ABSORB_OVERSHOOT_SCALE = 1.45;
+const SLOWDOWN_SCALE = 3.2;
 
 export class ParticleSystem {
   private particles: Particle[] = [];
@@ -87,28 +93,56 @@ export class ParticleSystem {
       const dx = target.x - p.x;
       const dy = target.y - p.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
+      const absorbRadius = particleAbsorbRadius(target);
+      const slowdownRadius = Math.max(42, absorbRadius * SLOWDOWN_SCALE);
       if (dist > 1) {
         p.vx += (dx / dist) * 0.08 * p.pull * frameScale;
         p.vy += (dy / dist) * 0.08 * p.pull * frameScale;
       }
 
-      p.x += p.vx * frameScale;
-      p.y += p.vy * frameScale;
+      if (dist < slowdownRadius) {
+        const damping = Math.max(0.46, dist / slowdownRadius);
+        p.vx *= damping;
+        p.vy *= damping;
+      }
+
+      const nextX = p.x + p.vx * frameScale;
+      const nextY = p.y + p.vy * frameScale;
+      const nextDist = Math.hypot(target.x - nextX, target.y - nextY);
       p.life -= p.decay * frameScale;
 
-      if (p.life <= 0 || dist < 18) {
+      if (p.life <= 0 || shouldAbsorbParticle(dist, nextDist, absorbRadius)) {
         this.particles.splice(i, 1);
         continue;
       }
 
-      const trail = Math.max(2.5, p.radius * 2.8);
+      p.x = nextX;
+      p.y = nextY;
+
+      const trail = Math.max(1.4, p.radius * 1.5);
       ctx.beginPath();
       ctx.moveTo(p.x - p.vx * trail, p.y - p.vy * trail);
       ctx.lineTo(p.x, p.y);
-      ctx.strokeStyle = `rgba(${p.color}, ${p.alpha * p.life})`;
+      ctx.strokeStyle = `rgba(${p.color}, ${p.alpha * p.life * 0.78})`;
       ctx.lineWidth = Math.max(0.8, p.radius * p.life);
       ctx.lineCap = "round";
       ctx.stroke();
     }
   }
+}
+
+export function shouldAbsorbParticle(currentDist: number, nextDist: number, absorbRadius = 30): boolean {
+  if (!Number.isFinite(currentDist) || !Number.isFinite(nextDist)) return true;
+  return shouldAbsorbParticleAtRadius(currentDist, nextDist, absorbRadius);
+}
+
+export function shouldAbsorbParticleAtRadius(currentDist: number, nextDist: number, absorbRadius: number): boolean {
+  if (!Number.isFinite(currentDist) || !Number.isFinite(nextDist) || !Number.isFinite(absorbRadius)) return true;
+  const radius = Math.max(MIN_ABSORB_RADIUS, absorbRadius);
+  if (currentDist <= radius || nextDist <= radius) return true;
+  return currentDist < radius * ABSORB_OVERSHOOT_SCALE && nextDist > currentDist;
+}
+
+export function particleAbsorbRadius(target: ParticleTarget): number {
+  return Math.max(MIN_ABSORB_RADIUS, (target.absorbRadius ?? 30) * ABSORB_RADIUS_SCALE);
 }

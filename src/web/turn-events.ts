@@ -29,7 +29,7 @@ export function applyTurnEvent(ownerId: string, event: TurnEvent | TurnMessage, 
 
   const color = modelAccent(event.source, event.model, core.color);
   const trait = modelTrait(event.source, event.model);
-  const count = Math.min(Math.ceil((event.delta.outputTokens / 6) * trait.particleBurst), 64);
+  const count = Math.min(Math.ceil((event.delta.outputTokens / 12) * trait.particleBurst), 42);
   const isSelf = ownerId === deps.selfId;
   deps.particles.spawn(core, count, color, deps.viewport, isSelf, {
     speed: trait.particleSpeed,

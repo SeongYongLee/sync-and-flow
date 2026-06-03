@@ -82,7 +82,7 @@ describe("turn event application", () => {
       lastModel: "gpt-5-codex",
       dominantPlanetClass: "forge",
     });
-    expect(particles.calls[0]?.[1]).toBe(13);
+    expect(particles.calls[0]?.[1]).toBe(7);
     expect(particles.calls[0]?.[3]).toEqual({ width: 800, height: 600 });
     expect(particles.calls[0]?.[4]).toBe(true);
     expect(particles.calls[0]?.[5]).toMatchObject({ speed: 1.18, spread: 0.82, life: 0.9, pull: 1.06 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ParticleSystem } from "../src/web/particles.js";
+import { ParticleSystem, particleAbsorbRadius, shouldAbsorbParticle, shouldAbsorbParticleAtRadius } from "../src/web/particles.js";
 
 describe("ParticleSystem", () => {
   it("caps particle count after spawn", () => {
@@ -20,6 +20,19 @@ describe("ParticleSystem", () => {
     particles.draw(ctx, new Map(), 1);
 
     expect(particles.size).toBe(0);
+  });
+
+  it("absorbs particles before they pass through the core", () => {
+    expect(shouldAbsorbParticle(42, 24)).toBe(true);
+    expect(shouldAbsorbParticle(42, 58)).toBe(true);
+    expect(shouldAbsorbParticle(120, 92)).toBe(false);
+  });
+
+  it("scales absorption radius with the visible core size", () => {
+    expect(particleAbsorbRadius({ id: "small", x: 0, y: 0, absorbRadius: 14 })).toBeCloseTo(12);
+    expect(particleAbsorbRadius({ id: "large", x: 0, y: 0, absorbRadius: 60 })).toBeCloseTo(43.2);
+    expect(shouldAbsorbParticleAtRadius(18, 15, particleAbsorbRadius({ id: "small", x: 0, y: 0, absorbRadius: 14 }))).toBe(false);
+    expect(shouldAbsorbParticleAtRadius(18, 15, particleAbsorbRadius({ id: "large", x: 0, y: 0, absorbRadius: 60 }))).toBe(true);
   });
 });
 

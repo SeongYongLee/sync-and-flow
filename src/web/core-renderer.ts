@@ -48,7 +48,7 @@ export class CoreRenderer {
     const r = displayCoreRadius(core, isSelf, options.viewport);
     const energyLevel = energyVisualLevel(core.energy);
     const rgb = hexToRgb(core.color);
-    const alpha = (isSelf ? 0.82 : 0.66) + energyLevel * (isSelf ? 0.06 : 0.08);
+    const alpha = (isSelf ? 0.9 : 0.66) + energyLevel * (isSelf ? 0.08 : 0.08);
     const variant = planetVariant(core.id, isSelf);
     const visual = this.resolveVisual(core, options.frameScale);
 
@@ -87,6 +87,7 @@ export class CoreRenderer {
       isSelf ? SPHERE_SEGMENTS_SELF : SPHERE_SEGMENTS_PEER,
     );
     this.drawSurfaceDetails(0, 0, r, core.noisePhase, isSelf, variant, visual);
+    this.drawCoreRim(r, isSelf, visual);
     this.ctx.restore();
 
     for (const [i, cfg] of RING_CFGS.entries()) {
@@ -107,22 +108,30 @@ export class CoreRenderer {
     this.ctx.font = `${(isSelf ? 12 : 10) / options.currentZoom}px monospace`;
     this.ctx.fillStyle = "rgba(255,255,255,0.62)";
     this.ctx.textAlign = "center";
-    this.ctx.fillText(isSelf ? "me" : core.nickname, core.x, core.y + r + 18);
+    this.ctx.fillText(isSelf ? primaryCoreLabel(core.nickname) : core.nickname, core.x, core.y + r + 18);
     this.ctx.restore();
   }
 
   private drawGlow(core: CoreState, r: number, isSelf: boolean, visual: ModelVisual): void {
     const auraScale = core.auraScale ?? 1;
     const energyLevel = energyVisualLevel(core.energy);
-    const glowRadius = r * (2.35 + energyLevel * 0.65) * auraScale;
+    const glowRadius = r * (2.45 + energyLevel * 0.72) * auraScale;
     const glow = this.ctx.createRadialGradient(core.x, core.y, r * 0.4, core.x, core.y, glowRadius);
-    glow.addColorStop(0, `rgba(${visual.accentRgb}, ${((isSelf ? 0.16 : 0.1) + energyLevel * 0.08) * visual.glowAlpha})`);
-    glow.addColorStop(0.42, `rgba(${visual.accentRgb}, ${energyLevel * 0.045 * visual.glowAlpha})`);
+    glow.addColorStop(0, `rgba(${visual.accentRgb}, ${((isSelf ? 0.2 : 0.1) + energyLevel * (isSelf ? 0.1 : 0.08)) * visual.glowAlpha})`);
+    glow.addColorStop(0.42, `rgba(${visual.accentRgb}, ${energyLevel * (isSelf ? 0.07 : 0.045) * visual.glowAlpha})`);
     glow.addColorStop(1, `rgba(${visual.accentRgb}, 0)`);
     this.ctx.beginPath();
     this.ctx.arc(core.x, core.y, glowRadius, 0, Math.PI * 2);
     this.ctx.fillStyle = glow;
     this.ctx.fill();
+  }
+
+  private drawCoreRim(r: number, isSelf: boolean, visual: ModelVisual): void {
+    this.ctx.beginPath();
+    this.ctx.arc(0, 0, r * 1.01, 0, Math.PI * 2);
+    this.ctx.strokeStyle = `rgba(${visual.accentRgb}, ${isSelf ? 0.2 : 0.1})`;
+    this.ctx.lineWidth = Math.max(0.9, r * (isSelf ? 0.026 : 0.018));
+    this.ctx.stroke();
   }
 
   private drawRingHalf(
@@ -410,6 +419,10 @@ export class CoreRenderer {
       secondaryAlpha: Math.min((core.secondaryPlanetClass ? core.planetMix[core.secondaryPlanetClass] ?? 0 : 0) * 0.55, 0.34),
     };
   }
+}
+
+function primaryCoreLabel(nickname: string): string {
+  return nickname === "demo" ? "demo" : "me";
 }
 
 function blendModelVisual(from: ModelVisual, to: ModelVisual, t: number): ModelVisual {

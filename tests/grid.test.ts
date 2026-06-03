@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { backdropDriftForEnergy, gridStepForEnergy, renderGridPattern } from "../src/web/grid.js";
+import { ambientBodiesForBackdrop, backdropDriftForEnergy, gridStepForEnergy, renderGridPattern } from "../src/web/grid.js";
 
 describe("renderGridPattern", () => {
   it("draws vertical and horizontal grid lines at the requested step", () => {
@@ -36,6 +36,27 @@ describe("renderGridPattern", () => {
     expect(backdropDriftForEnergy(0)).toBeCloseTo(0.012);
     expect(backdropDriftForEnergy(700_000)).toBeGreaterThan(backdropDriftForEnergy(100));
     expect(backdropDriftForEnergy(10_000_000)).toBeGreaterThan(backdropDriftForEnergy(700_000));
+  });
+
+  it("places deterministic ambient bodies and scales their count with energy", () => {
+    const viewport = { width: 800, height: 600 };
+    const idle = ambientBodiesForBackdrop(viewport, 0);
+    const active = ambientBodiesForBackdrop(viewport, 1_000_000);
+
+    expect(idle.length).toBeGreaterThanOrEqual(4);
+    expect(active.length).toBeGreaterThan(idle.length);
+    expect(ambientBodiesForBackdrop(viewport, 1_000_000)).toEqual(active);
+    expect(active[0]).toMatchObject({
+      x: expect.any(Number),
+      y: expect.any(Number),
+      radius: expect.any(Number),
+      rgb: expect.any(String),
+      alpha: expect.any(Number),
+      ring: expect.any(Boolean),
+      kind: expect.any(String),
+      phase: expect.any(Number),
+    });
+    expect(new Set(active.map((body) => body.kind)).size).toBeGreaterThan(1);
   });
 });
 
