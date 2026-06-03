@@ -27,6 +27,11 @@ function core(id: string): CoreState {
     auraScale: 1,
     growthScale: 1,
     resourceBoost: 1,
+    combo: 0,
+    lastComboAt: 0,
+    shards: 0,
+    evolutionCharge: 0,
+    satellites: [],
   };
 }
 
@@ -81,12 +86,35 @@ describe("turn event application", () => {
       lastSource: "codex",
       lastModel: "gpt-5-codex",
       dominantPlanetClass: "forge",
+      combo: 1,
     });
+    expect(cores.get("me")!.shards).toBeGreaterThan(0);
+    expect(cores.get("me")!.evolutionCharge).toBeGreaterThan(0);
+    expect(cores.get("me")!.satellites).toHaveLength(1);
     expect(particles.calls[0]?.[1]).toBe(7);
     expect(particles.calls[0]?.[3]).toEqual({ width: 800, height: 600 });
     expect(particles.calls[0]?.[4]).toBe(true);
     expect(particles.calls[0]?.[5]).toMatchObject({ speed: 1.18, spread: 0.82, life: 0.9, pull: 1.06 });
     expect(hud.calls).toEqual([["codex", "gpt-5-codex", 3, 61, 106.92, "forge", "Forge 100%"]]);
+  });
+
+  it("builds combo streaks and source satellites across quick turns", () => {
+    const cores = new Map([["me", core("me")]]);
+    const particles = { spawn() {} };
+    const hud = { updateTurn() {} };
+
+    applyTurnEvent("me", turn, { cores, particles, hud, selfId: "me", viewport: { width: 800, height: 600 }, now: () => 1_000 });
+    applyTurnEvent("me", { ...turn, model: "claude-sonnet-4-6", source: "claude", provider: "anthropic", energy: 180 }, {
+      cores,
+      particles,
+      hud,
+      selfId: "me",
+      viewport: { width: 800, height: 600 },
+      now: () => 4_000,
+    });
+
+    expect(cores.get("me")!.combo).toBe(2);
+    expect(cores.get("me")!.satellites.map((satellite) => satellite.source).sort()).toEqual(["claude", "codex"]);
   });
 
   it("does not update HUD for peer turns", () => {

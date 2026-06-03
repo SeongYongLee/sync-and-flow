@@ -87,8 +87,11 @@ export class CoreRenderer {
       isSelf ? SPHERE_SEGMENTS_SELF : SPHERE_SEGMENTS_PEER,
     );
     this.drawSurfaceDetails(0, 0, r, core.noisePhase, isSelf, variant, visual);
+    this.drawStoredEnergy(core, r, isSelf, visual);
     this.drawCoreRim(r, isSelf, visual);
     this.ctx.restore();
+
+    this.drawSatellites(core, r, isSelf, visual);
 
     for (const [i, cfg] of RING_CFGS.entries()) {
       if (i >= visual.ringCount) continue;
@@ -132,6 +135,63 @@ export class CoreRenderer {
     this.ctx.strokeStyle = `rgba(${visual.accentRgb}, ${isSelf ? 0.2 : 0.1})`;
     this.ctx.lineWidth = Math.max(0.9, r * (isSelf ? 0.026 : 0.018));
     this.ctx.stroke();
+  }
+
+  private drawStoredEnergy(core: CoreState, r: number, isSelf: boolean, visual: ModelVisual): void {
+    if (!isSelf) return;
+    const charge = Math.min(1, core.evolutionCharge ?? 0);
+    const combo = Math.max(0, core.combo ?? 0);
+    const shardCount = Math.min(10, Math.floor((core.shards ?? 0) / 2));
+    if (charge <= 0 && shardCount <= 0 && combo <= 1) return;
+
+    const fill = this.ctx.createRadialGradient(0, 0, r * 0.08, 0, 0, r * (0.32 + charge * 0.46));
+    fill.addColorStop(0, `rgba(${visual.accentRgb}, ${0.14 + charge * 0.18})`);
+    fill.addColorStop(1, `rgba(${visual.accentRgb}, 0)`);
+    this.ctx.beginPath();
+    this.ctx.arc(0, 0, r * (0.35 + charge * 0.44), 0, Math.PI * 2);
+    this.ctx.fillStyle = fill;
+    this.ctx.fill();
+
+    for (let i = 0; i < shardCount; i++) {
+      const angle = core.noisePhase * 0.38 + i * 2.399;
+      const dist = r * (0.2 + (i % 4) * 0.1);
+      const size = Math.max(1.2, r * 0.025);
+      this.ctx.beginPath();
+      this.ctx.arc(Math.cos(angle) * dist, Math.sin(angle * 1.17) * dist, size, 0, Math.PI * 2);
+      this.ctx.fillStyle = `rgba(${visual.accentRgb}, ${0.22 + charge * 0.2})`;
+      this.ctx.fill();
+    }
+
+    if (combo >= 2) {
+      this.ctx.beginPath();
+      this.ctx.arc(0, 0, r * (1.08 + Math.min(combo, 6) * 0.025), 0, Math.PI * 2);
+      this.ctx.strokeStyle = `rgba(${visual.accentRgb}, ${0.08 + Math.min(combo, 6) * 0.025})`;
+      this.ctx.lineWidth = Math.max(1, r * 0.012);
+      this.ctx.stroke();
+    }
+  }
+
+  private drawSatellites(core: CoreState, r: number, isSelf: boolean, visual: ModelVisual): void {
+    if (!isSelf || !core.satellites.length) return;
+    const orbitBase = r * 2.15;
+    for (let i = 0; i < core.satellites.length; i++) {
+      const satellite = core.satellites[i]!;
+      const weight = Math.max(0.18, satellite.weight);
+      const angle = satellite.angle + core.ringAngles[0] * (0.7 + i * 0.12);
+      const orbit = orbitBase + i * r * 0.18;
+      const sx = core.x + Math.cos(angle) * orbit;
+      const sy = core.y + Math.sin(angle) * orbit * 0.56;
+      const sr = Math.max(3, r * (0.055 + weight * 0.03));
+      this.ctx.beginPath();
+      this.ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+      this.ctx.fillStyle = `rgba(${visual.accentRgb}, ${0.18 + weight * 0.18})`;
+      this.ctx.fill();
+      this.ctx.beginPath();
+      this.ctx.arc(sx, sy, sr * 2.2, 0, Math.PI * 2);
+      this.ctx.strokeStyle = `rgba(${visual.accentRgb}, ${0.06 + weight * 0.08})`;
+      this.ctx.lineWidth = 1;
+      this.ctx.stroke();
+    }
   }
 
   private drawRingHalf(

@@ -75,5 +75,10 @@ function core(id: string): CoreState {
     auraScale: 1,
     growthScale: 1,
     resourceBoost: 1,
+    combo: 0,
+    lastComboAt: 0,
+    shards: 0,
+    evolutionCharge: 0,
+    satellites: [],
   };
 }

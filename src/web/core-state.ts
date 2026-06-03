@@ -29,12 +29,27 @@ export interface CoreState {
   auraScale: number;
   growthScale: number;
   resourceBoost: number;
+  combo: number;
+  lastComboAt: number;
+  shards: number;
+  evolutionCharge: number;
+  satellites: CoreSatellite[];
 }
 
 export interface PlanetUse {
   planetClass: PlanetClass;
   weight: number;
   timestamp: number;
+}
+
+export interface CoreSatellite {
+  key: string;
+  source: string;
+  model: string;
+  planetClass: PlanetClass;
+  weight: number;
+  lastTurnAt: number;
+  angle: number;
 }
 
 export function ensureCore(
@@ -70,6 +85,11 @@ export function ensureCore(
       auraScale: 1,
       growthScale: 1,
       resourceBoost: 1,
+      combo: 0,
+      lastComboAt: 0,
+      shards: 0,
+      evolutionCharge: 0,
+      satellites: [],
     };
     cores.set(peer.id, core);
   }
