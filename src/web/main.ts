@@ -1,7 +1,7 @@
-import { getPresenceIdentityResult } from "./identity.js";
+import { fetchBridgeIdentity, getPresenceIdentityResult } from "./identity.js";
 import { connectStream, type SnapshotEvent, type TurnEvent } from "./stream-client.js";
 import { connectPresence } from "./ws-client.js";
-import { setupMobileQr } from "./mobile-qr.js";
+import { setupMobileQr, updateMobileQrAvailability } from "./mobile-qr.js";
 import { setupFlowLinkPrompt } from "./flow-link.js";
 import { setupDiagnostics } from "./diagnostics.js";
 import { DEMO_CORE_ID, createDemoFlowState, ensureDemoFlowCore, nextDemoTurn, removeDemoFlowCore, shouldShowDemoFlow } from "./demo-flow.js";
@@ -32,6 +32,8 @@ const demoFlow = createDemoFlowState(performance.now());
 let selfId = "";
 let isViewerOnly = false;
 let presenceMode: "local-bridge" | "browser-only" = "browser-only";
+let localStreamStarted = false;
+let bridgeProbeInFlight = false;
 let currentZoom = 1;
 let lastFrameAt = performance.now();
 const seenTurns = new Set<string>();
@@ -181,6 +183,44 @@ function updateDemoFlow(now: number): void {
   }
 }
 
+async function probeLocalBridge(): Promise<void> {
+  if (presenceMode === "local-bridge" || bridgeProbeInFlight) return;
+  bridgeProbeInFlight = true;
+  try {
+    const identity = await fetchBridgeIdentity();
+    if (!identity) return;
+    updateMobileQrAvailability();
+    startLocalBridgeMode({ id: identity.userId, nickname: identity.nickname, color: identity.color });
+  } finally {
+    bridgeProbeInFlight = false;
+  }
+}
+
+function startLocalBridgeMode(identity: PeerMeta): void {
+  presenceMode = "local-bridge";
+  isViewerOnly = false;
+  selfId = identity.id;
+  removeDemoFlowCore(cores);
+  ensureCore(identity);
+  layoutCores();
+  demoBadge.hidden = true;
+  document.getElementById("flow-link-card")?.setAttribute("hidden", "");
+  if (localStreamStarted) return;
+  localStreamStarted = true;
+  connectStream({
+    onStatus(state, detail) {
+      hud.updateStream(state, detail ?? "");
+    },
+    onEvent(event) {
+      if (event.type === "snapshot") {
+        applySnapshot(selfId, event);
+        return;
+      }
+      applyTurn(selfId, event);
+    },
+  });
+}
+
 function shouldUpdateHud(ownerId: string): boolean {
   return ownerId === selfId || isViewerOnly;
 }
@@ -210,13 +250,14 @@ function onWorkerMessage(message: WorkerToBrowserMessage) {
 async function boot() {
   setupMobileQr();
   const { identity, mode } = await getPresenceIdentityResult();
+  updateMobileQrAvailability();
   setupDiagnostics(identity.userId);
   setupFlowLinkPrompt(mode);
   selfId = identity.userId;
   isViewerOnly = mode !== "local-bridge";
   presenceMode = mode;
   if (mode === "local-bridge") {
-    ensureCore({ id: identity.userId, nickname: identity.nickname, color: identity.color });
+    startLocalBridgeMode({ id: identity.userId, nickname: identity.nickname, color: identity.color });
   }
   layoutCores();
 
@@ -239,20 +280,9 @@ async function boot() {
     { announce: mode === "local-bridge" },
   );
 
-  if (mode === "local-bridge") {
-    connectStream({
-      onStatus(state, detail) {
-        hud.updateStream(state, detail ?? "");
-      },
-      onEvent(event) {
-        if (event.type === "snapshot") {
-          applySnapshot(selfId, event);
-          return;
-        }
-        applyTurn(selfId, event);
-      },
-    });
-  }
+  window.setInterval(() => {
+    void probeLocalBridge();
+  }, 4_000);
 
   ctx.fillStyle = "rgb(8, 6, 20)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getPresenceIdentityResult } from "../src/web/identity.js";
+import { resolveOptionalWorkerWatchUrl } from "../src/web/runtime-url.js";
 import type { Identity } from "../src/shared/nickname.js";
 
 const originalFetch = globalThis.fetch;
@@ -85,6 +86,25 @@ describe("presence identity", () => {
       mode: "local-bridge",
     });
     expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:3001/identity", expect.any(Object));
+  });
+
+  it("stores the bridge worker watch URL for mobile QR automation", async () => {
+    setBrowserUrl("http://localhost:5175/");
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        userId: "app-user",
+        nickname: "desktop-app",
+        color: "#80b4ff",
+        workerWatchUrl: "wss://worker.example.com/presence",
+      }),
+    }));
+    Object.defineProperty(globalThis, "fetch", { configurable: true, value: fetchMock });
+
+    await expect(getPresenceIdentityResult()).resolves.toMatchObject({
+      mode: "local-bridge",
+    });
+    expect(resolveOptionalWorkerWatchUrl()).toBe("wss://worker.example.com/presence");
   });
 
   it("falls back to browser-only identity when the local bridge is missing", async () => {

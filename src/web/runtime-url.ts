@@ -1,6 +1,7 @@
-const LAN_HOST_KEY = "sf:lan-host";
 const BRIDGE_PORT_KEY = "sf:bridge-port";
 const BRIDGE_TOKEN_KEY = "sf:bridge-token";
+const WORKER_WATCH_URL_KEY = "sf:worker-watch-url";
+const DEFAULT_MOBILE_VIEWER_URL = "https://sync-and-flow.pages.dev/";
 
 export function resolveWorkerUrl(): string {
   return resolveOptionalWorkerUrl() ?? "ws://localhost:8787";
@@ -13,7 +14,15 @@ export function resolveOptionalWorkerUrl(): string | null {
   const fromEnv = import.meta.env.VITE_SYNC_FLOW_WORKER_URL as string | undefined;
   if (fromEnv) return fromEnv;
 
+  const fromBridge = sessionStorage.getItem(WORKER_WATCH_URL_KEY);
+  if (fromBridge) return fromBridge;
+
   return null;
+}
+
+export function setRuntimeWorkerWatchUrl(workerWatchUrl: string | null | undefined): void {
+  if (!workerWatchUrl) return;
+  sessionStorage.setItem(WORKER_WATCH_URL_KEY, workerWatchUrl);
 }
 
 export function resolveOptionalWorkerWatchUrl(): string | null {
@@ -50,48 +59,13 @@ export function isBridgePaused(): boolean {
 }
 
 export async function buildViewerUrl(): Promise<string | null> {
+  const fromQuery = new URLSearchParams(location.search).get("viewer");
+  if (fromQuery) return withWorkerWatchUrl(fromQuery);
+
   const fromEnv = import.meta.env.VITE_SYNC_FLOW_VIEWER_URL as string | undefined;
-  if (fromEnv) return fromEnv;
+  if (fromEnv) return withWorkerWatchUrl(fromEnv);
 
-  if (isTauriRuntime()) return buildLanViewerUrl();
-
-  const page = new URL(location.href);
-
-  if (location.protocol === "https:" && !isLocalHost(location.hostname)) {
-    page.searchParams.delete("worker");
-    return page.toString();
-  }
-
-  return buildLanViewerUrl(location.hostname);
-}
-
-export function getStoredLanHost(): string {
-  return localStorage.getItem(LAN_HOST_KEY) ?? "";
-}
-
-export function buildLanViewerUrlFromHost(host: string): string {
-  const normalizedHost = host.trim();
-  if (!normalizedHost) throw new Error("Enter your Mac LAN IP.");
-
-  localStorage.setItem(LAN_HOST_KEY, normalizedHost);
-  const workerUrl = resolveOptionalWorkerWatchUrl();
-  if (!workerUrl) {
-    throw new Error("Mobile viewing requires remote presence. Start the Worker and open Flow Link with a worker URL first.");
-  }
-
-  const page = new URL(`http://${normalizedHost}:5173/`);
-  page.searchParams.set("worker", workerUrlForLanViewer(workerUrl, normalizedHost));
-  page.searchParams.set("bridgePaused", "1");
-  return page.toString();
-}
-
-async function buildLanViewerUrl(currentHost = ""): Promise<string | null> {
-  const stored = localStorage.getItem(LAN_HOST_KEY);
-  const defaultHost = currentHost && !isLocalHost(currentHost) ? currentHost : stored ?? "";
-  const host = window.prompt("Enter your Mac LAN IP for mobile access", defaultHost);
-  if (!host) return null;
-
-  return buildLanViewerUrlFromHost(host);
+  return withWorkerWatchUrl(DEFAULT_MOBILE_VIEWER_URL);
 }
 
 export function isLocalHost(hostname: string): boolean {
@@ -99,18 +73,8 @@ export function isLocalHost(hostname: string): boolean {
 }
 
 export function isTauriRuntime(): boolean {
+  if (typeof window === "undefined") return false;
   return "__TAURI_INTERNALS__" in window || "__TAURI__" in window;
-}
-
-function workerUrlForLanViewer(workerUrl: string, lanHost: string): string {
-  try {
-    const url = new URL(workerUrl);
-    if (isLocalHost(url.hostname)) url.hostname = lanHost;
-    url.searchParams.delete("token");
-    return url.toString();
-  } catch {
-    return workerUrl;
-  }
 }
 
 function stripWorkerPublishToken(workerUrl: string): string {
@@ -120,5 +84,17 @@ function stripWorkerPublishToken(workerUrl: string): string {
     return url.toString();
   } catch {
     return workerUrl;
+  }
+}
+
+function withWorkerWatchUrl(viewerUrl: string): string {
+  const workerUrl = resolveOptionalWorkerWatchUrl();
+  if (!workerUrl) return viewerUrl;
+  try {
+    const url = new URL(viewerUrl);
+    url.searchParams.set("worker", workerUrl);
+    return url.toString();
+  } catch {
+    return viewerUrl;
   }
 }

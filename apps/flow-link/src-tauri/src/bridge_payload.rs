@@ -23,6 +23,8 @@ struct IdentityPayload<'a> {
     user_id: &'a str,
     nickname: &'a str,
     color: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    worker_watch_url: Option<&'a str>,
 }
 
 #[derive(Serialize)]
@@ -90,6 +92,17 @@ pub(crate) fn identity_json(identity: &Identity) -> String {
         user_id: &identity.user_id,
         nickname: &identity.nickname,
         color: &identity.color,
+        worker_watch_url: None,
+    })
+    .unwrap_or_else(|_| "{}".to_string())
+}
+
+pub(crate) fn identity_response_json(identity: &Identity, worker_watch_url: Option<&str>) -> String {
+    serde_json::to_string(&IdentityPayload {
+        user_id: &identity.user_id,
+        nickname: &identity.nickname,
+        color: &identity.color,
+        worker_watch_url,
     })
     .unwrap_or_else(|_| "{}".to_string())
 }

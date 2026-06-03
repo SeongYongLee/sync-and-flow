@@ -4,6 +4,7 @@ node_modules/
 dist/
 dist-worker/
 coverage/
+.env.local
 public/downloads/*.dmg
 public/downloads/*.exe
 public/downloads/*.msi

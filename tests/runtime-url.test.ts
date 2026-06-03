@@ -1,17 +1,19 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  buildLanViewerUrlFromHost,
+  buildViewerUrl,
   hasBridgeCredentials,
   isLocalHost,
   resolveBridgeUrl,
   resolveOptionalWorkerWatchUrl,
   resolveOptionalWorkerUrl,
   resolveWorkerUrl,
+  setRuntimeWorkerWatchUrl,
 } from "../src/web/runtime-url.js";
 
 const originalLocation = globalThis.location;
 const originalLocalStorage = globalThis.localStorage;
 const originalSessionStorage = globalThis.sessionStorage;
+const originalWindow = globalThis.window;
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -57,6 +59,10 @@ afterEach(() => {
     configurable: true,
     value: originalLocalStorage,
   });
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: originalWindow,
+  });
 });
 
 describe("runtime URL helpers", () => {
@@ -96,16 +102,41 @@ describe("runtime URL helpers", () => {
     expect(resolveOptionalWorkerWatchUrl()).toBe("wss://example.com/presence");
   });
 
-  it("requires remote presence for LAN viewer URLs", () => {
-    setBrowserUrl("http://localhost:5173/");
+  it("uses a bridge-provided worker watch URL when no query worker is present", () => {
+    setBrowserUrl("http://localhost:5175/");
 
-    expect(() => buildLanViewerUrlFromHost("192.168.0.10")).toThrow("Mobile viewing requires remote presence");
+    setRuntimeWorkerWatchUrl("wss://worker.example.com/presence");
+
+    expect(resolveOptionalWorkerUrl()).toBe("wss://worker.example.com/presence");
+    expect(resolveOptionalWorkerWatchUrl()).toBe("wss://worker.example.com/presence");
   });
 
-  it("builds LAN viewer URLs with bridge paused and localhost worker rewritten", () => {
-    setBrowserUrl("http://localhost:5173/?worker=ws://127.0.0.1:8787?token=secret");
+  it("builds hosted mobile viewer URLs by default from local pages", async () => {
+    setBrowserUrl("http://localhost:5175/?worker=wss://worker.example.com?token=secret");
 
-    expect(buildLanViewerUrlFromHost("192.168.0.10")).toBe("http://192.168.0.10:5173/?worker=ws%3A%2F%2F192.168.0.10%3A8787%2F&bridgePaused=1");
+    expect(await buildViewerUrl()).toBe("https://sync-and-flow.pages.dev/?worker=wss%3A%2F%2Fworker.example.com%2F");
+  });
+
+  it("builds hosted mobile viewer URLs from desktop app pages", async () => {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { __TAURI_INTERNALS__: {} },
+    });
+    setBrowserUrl("http://localhost:5175/?worker=wss://worker.example.com?token=secret");
+
+    expect(await buildViewerUrl()).toBe("https://sync-and-flow.pages.dev/?worker=wss%3A%2F%2Fworker.example.com%2F");
+  });
+
+  it("preserves a tokenless worker watch URL in hosted viewer QR URLs", async () => {
+    setBrowserUrl("https://sync-and-flow.pages.dev/?worker=wss://worker.example.com?token=secret");
+
+    expect(await buildViewerUrl()).toBe("https://sync-and-flow.pages.dev/?worker=wss%3A%2F%2Fworker.example.com%2F");
+  });
+
+  it("builds hosted mobile viewer URLs from local pages when viewer is configured", async () => {
+    setBrowserUrl("http://localhost:5175/?viewer=https://sync-and-flow.pages.dev/&worker=wss://worker.example.com?token=secret");
+
+    expect(await buildViewerUrl()).toBe("https://sync-and-flow.pages.dev/?worker=wss%3A%2F%2Fworker.example.com%2F");
   });
 
   it("keeps the desktop bridge local when the viewer is opened through a LAN URL", () => {

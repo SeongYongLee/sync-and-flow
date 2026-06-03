@@ -1,28 +1,26 @@
 import { toString as qrToString } from "qrcode";
-import { buildLanViewerUrlFromHost, buildViewerUrl, getStoredLanHost, isTauriRuntime, resolveOptionalWorkerWatchUrl } from "./runtime-url.js";
+import { buildViewerUrl, resolveOptionalWorkerWatchUrl } from "./runtime-url.js";
+
+const ACTIVE_LABEL = "MOBILE QR";
+const INACTIVE_LABEL = "MOBILE OFF";
 
 export function setupMobileQr() {
   const button = document.getElementById("mobile-share") as HTMLButtonElement | null;
   const panel = document.getElementById("mobile-qr-panel")!;
   const qr = document.getElementById("mobile-qr")!;
   const urlText = document.getElementById("mobile-url")!;
-  const hostForm = document.getElementById("mobile-host-form") as HTMLFormElement | null;
-  const hostInput = document.getElementById("mobile-host") as HTMLInputElement | null;
   const close = document.getElementById("mobile-qr-close") as HTMLButtonElement | null;
-  if (button && isTauriRuntime() && !resolveOptionalWorkerWatchUrl()) {
-    button.textContent = "MOBILE OFF";
-    button.title = "Mobile QR needs remote presence.";
-  }
+  updateMobileQrAvailability();
 
   button?.addEventListener("click", async () => {
+    updateMobileQrAvailability();
     panel.removeAttribute("hidden");
-    hostForm?.setAttribute("hidden", "");
     qr.removeAttribute("hidden");
     qr.textContent = "Preparing QR...";
     urlText.textContent = "";
 
     try {
-      const url = await buildMobileUrl(hostForm, hostInput, qr, urlText);
+      const url = await buildMobileUrl(qr, urlText);
       if (!url) return;
       await renderQr(url, qr, urlText);
     } catch (error) {
@@ -31,54 +29,25 @@ export function setupMobileQr() {
     }
   });
 
-  hostForm?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    try {
-      const url = buildLanViewerUrlFromHost(hostInput?.value ?? "");
-      qr.removeAttribute("hidden");
-      await renderQr(url, qr, urlText);
-      hostForm.setAttribute("hidden", "");
-    } catch (error) {
-      qr.removeAttribute("hidden");
-      qr.textContent = "QR unavailable";
-      urlText.textContent = error instanceof Error ? error.message : "Could not create mobile URL.";
-    }
-  });
-
   close?.addEventListener("click", () => panel.setAttribute("hidden", ""));
 }
 
-async function buildMobileUrl(
-  hostForm: HTMLFormElement | null,
-  hostInput: HTMLInputElement | null,
-  qr: HTMLElement,
-  urlText: HTMLElement,
-): Promise<string | null> {
-  if (isTauriRuntime()) {
-    if (!resolveOptionalWorkerWatchUrl()) {
-      hostForm?.setAttribute("hidden", "");
-      qr.setAttribute("hidden", "");
-      qr.textContent = "";
-      urlText.textContent = "Mobile viewing is disabled in local-only mode. Start remote presence with a Worker URL to generate a mobile QR.";
-      return null;
-    }
+export function updateMobileQrAvailability(): void {
+  const button = document.getElementById("mobile-share") as HTMLButtonElement | null;
+  if (!button) return;
+  const enabled = Boolean(resolveOptionalWorkerWatchUrl());
+  button.textContent = enabled ? ACTIVE_LABEL : INACTIVE_LABEL;
+  button.title = enabled ? "Open this flow on a phone." : "Mobile QR needs remote presence.";
+}
 
-    const storedHost = getStoredLanHost();
-    if (!storedHost) {
-      hostForm?.removeAttribute("hidden");
-      qr.setAttribute("hidden", "");
-      qr.textContent = "";
-      urlText.textContent = "";
-      if (hostInput) {
-        hostInput.value = "";
-        hostInput.focus();
-      }
-      return null;
-    }
-    return buildLanViewerUrlFromHost(storedHost);
+async function buildMobileUrl(qr: HTMLElement, urlText: HTMLElement): Promise<string | null> {
+  if (!resolveOptionalWorkerWatchUrl()) {
+    qr.setAttribute("hidden", "");
+    qr.textContent = "";
+    urlText.textContent = "Mobile viewing needs remote presence. Start with a Worker URL to generate a mobile QR.";
+    return null;
   }
 
-  hostForm?.setAttribute("hidden", "");
   return buildViewerUrl();
 }
 

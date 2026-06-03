@@ -25,7 +25,8 @@ use tauri::{
 };
 
 use bridge_payload::{
-    color_for_id, identity_json, snapshot_json, turn_json, worker_publish_json, Identity, Totals,
+    color_for_id, identity_json, identity_response_json, snapshot_json, turn_json,
+    worker_publish_json, Identity, Totals,
 };
 use native_bridge::{is_codex_path, parse_claude_turn, parse_pi_turn, CodexParseState, Turn};
 use source_scan::{
@@ -446,11 +447,18 @@ fn handle_http(mut stream: TcpStream, state: Arc<Mutex<NativeBridgeState>>) {
 
     match path {
         "/identity" => {
-            let identity = state.lock().ok().map(|state| state.identity.clone());
-            if let Some(identity) = identity {
+            let payload = state.lock().ok().map(|state| {
+                let worker_watch_url = if state.worker_url.is_empty() {
+                    None
+                } else {
+                    Some(worker_watch_url(&state.worker_url))
+                };
+                identity_response_json(&state.identity, worker_watch_url.as_deref())
+            });
+            if let Some(payload) = payload {
                 write_json(
                     &mut stream,
-                    &identity_json(&identity),
+                    &payload,
                     request.origin.as_deref(),
                 );
             }
@@ -942,6 +950,21 @@ mod tests {
         if let Some(handle) = bridge.handle.take() {
             handle.join().expect("bridge thread joined");
         }
+    }
+
+    #[test]
+    fn identity_response_can_include_worker_watch_url() {
+        let identity = Identity {
+            user_id: "app-user".to_string(),
+            nickname: "desktop-app".to_string(),
+            color: "#80b4ff".to_string(),
+        };
+
+        let payload = identity_response_json(&identity, Some("wss://worker.example.com/presence"));
+
+        assert!(payload.contains(r#""userId":"app-user""#));
+        assert!(payload.contains(r#""workerWatchUrl":"wss://worker.example.com/presence""#));
+        assert!(!identity_json(&identity).contains("workerWatchUrl"));
     }
 
     #[test]

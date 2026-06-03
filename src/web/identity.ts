@@ -1,5 +1,5 @@
 import { colorForId, createIdentity, type Identity } from "../shared/nickname.js";
-import { isBridgePaused, resolveBridgeUrl } from "./runtime-url.js";
+import { isBridgePaused, resolveBridgeUrl, setRuntimeWorkerWatchUrl } from "./runtime-url.js";
 
 const VIEWER_KEY = "sf:viewer-identity";
 
@@ -30,7 +30,7 @@ export async function getPresenceIdentityResult(): Promise<PresenceIdentityResul
   return { identity: getBrowserIdentity(), mode: "browser-only" };
 }
 
-async function fetchBridgeIdentity(): Promise<Identity | null> {
+export async function fetchBridgeIdentity(): Promise<Identity | null> {
   if (isBridgePaused()) return null;
   const urls = [resolveBridgeUrl("/identity")];
 
@@ -48,13 +48,18 @@ async function fetchIdentityUrl(url: string): Promise<Identity | null> {
   try {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) return null;
-    const identity = (await res.json()) as Identity;
+    const identity = (await res.json()) as BridgeIdentityPayload;
+    if (identity.workerWatchUrl) setRuntimeWorkerWatchUrl(identity.workerWatchUrl);
     return identity.userId && identity.nickname ? identity : null;
   } catch {
     return null;
   } finally {
     window.clearTimeout(timeout);
   }
+}
+
+interface BridgeIdentityPayload extends Identity {
+  workerWatchUrl?: string;
 }
 
 function readStorage(storage: Storage, key: string): Identity | null {
