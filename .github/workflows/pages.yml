@@ -46,6 +46,12 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Ensure Cloudflare Pages project
+        run: pnpm dlx wrangler@latest pages project create sync-and-flow --production-branch main || true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Deploy to Cloudflare Pages
         run: pnpm dlx wrangler@latest pages deploy dist --project-name sync-and-flow --branch main
         env:
