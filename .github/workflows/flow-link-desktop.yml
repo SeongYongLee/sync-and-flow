@@ -11,6 +11,10 @@ on:
         description: "Optional Worker WebSocket URL baked into Flow Link"
         required: false
         default: ""
+      sign_macos:
+        description: "Use Apple Developer ID signing/notarization secrets for the macOS build"
+        required: false
+        default: "false"
   push:
     tags:
       - "flow-link-v*"
@@ -67,7 +71,7 @@ jobs:
         run: pnpm build
 
       - name: Prepare Apple notarization key
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && inputs.sign_macos == 'true'
         shell: bash
         env:
           APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
@@ -80,6 +84,13 @@ jobs:
           fi
 
       - name: Build Flow Link
+        if: matrix.os != 'macos-latest' || inputs.sign_macos != 'true'
+        run: ${{ matrix.build-command }}
+        env:
+          TAURI_WINDOWS_SIGNTOOL_PATH: ${{ secrets.TAURI_WINDOWS_SIGNTOOL_PATH }}
+
+      - name: Build signed Flow Link for macOS
+        if: matrix.os == 'macos-latest' && inputs.sign_macos == 'true'
         run: ${{ matrix.build-command }}
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -90,7 +101,6 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          TAURI_WINDOWS_SIGNTOOL_PATH: ${{ secrets.TAURI_WINDOWS_SIGNTOOL_PATH }}
 
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4
