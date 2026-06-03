@@ -1,5 +1,5 @@
 const workerBase = process.argv[2] ?? "http://127.0.0.1:8787";
-const publishUrl = new URL("/publish", workerBase).toString();
+const publishUrl = toHttpPublishUrl(workerBase);
 
 const sequence = [
   { source: "claude", provider: "anthropic", model: "claude-sonnet-4-6", outputTokens: 160 },
@@ -54,3 +54,14 @@ for (const item of sequence) {
 }
 
 console.log(`[demo] published ${sequence.length} planet transitions to ${publishUrl}`);
+
+function toHttpPublishUrl(url) {
+  const parsed = new URL(url.trim());
+  if (parsed.protocol === "ws:") parsed.protocol = "http:";
+  if (parsed.protocol === "wss:") parsed.protocol = "https:";
+  if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+    parsed.pathname = `${parsed.pathname.replace(/\/$/, "")}/publish`;
+    return parsed.toString();
+  }
+  throw new Error(`Unsupported worker URL: ${url}`);
+}

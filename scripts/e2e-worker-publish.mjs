@@ -4,7 +4,7 @@ const baseUrl =
   process.env.VITE_SYNC_FLOW_WORKER_URL ??
   "ws://localhost:8787";
 
-const watchUrl = `${baseUrl.replace(/\/$/, "")}/watch`;
+const watchUrl = workerEndpoint(baseUrl, "watch");
 const publishUrl = toHttpPublishUrl(baseUrl);
 const identity = {
   userId: `e2e-${Date.now()}`,
@@ -81,11 +81,20 @@ ws.addEventListener("close", () => {
 });
 
 function toHttpPublishUrl(url) {
-  const base = url.trim().replace(/\/$/, "");
-  if (base.startsWith("ws://")) return `http://${base.slice("ws://".length)}/publish`;
-  if (base.startsWith("wss://")) return `https://${base.slice("wss://".length)}/publish`;
-  if (base.startsWith("http://") || base.startsWith("https://")) return `${base}/publish`;
+  const parsed = new URL(url.trim());
+  if (parsed.protocol === "ws:") parsed.protocol = "http:";
+  if (parsed.protocol === "wss:") parsed.protocol = "https:";
+  if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+    parsed.pathname = `${parsed.pathname.replace(/\/$/, "")}/publish`;
+    return parsed.toString();
+  }
   throw new Error(`Unsupported worker URL: ${url}`);
+}
+
+function workerEndpoint(url, path) {
+  const parsed = new URL(url.trim());
+  parsed.pathname = `${parsed.pathname.replace(/\/$/, "")}/${path}`;
+  return parsed.toString();
 }
 
 function delay(ms) {

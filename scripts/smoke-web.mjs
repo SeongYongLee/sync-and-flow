@@ -1,6 +1,9 @@
 import { chromium } from "playwright-core";
 
-const url = process.argv[2] ?? "http://127.0.0.1:5175/?worker=ws://127.0.0.1:8787";
+const requestedUrl = process.argv[2] ?? "http://127.0.0.1:5175/?worker=ws://127.0.0.1:8787";
+const pageUrl = new URL(requestedUrl);
+if (process.env.DEMO_PLANETS === "1") pageUrl.searchParams.set("bridgePaused", "1");
+const url = pageUrl.toString();
 const chromePath = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 const browser = await chromium.launch({
@@ -26,7 +29,7 @@ try {
 
   if (process.env.DEMO_PLANETS === "1") {
     const workerUrl = new URL(url).searchParams.get("worker") ?? "ws://127.0.0.1:8787";
-    const publishUrl = `${workerUrl.replace(/^ws:/, "http:").replace(/^wss:/, "https:").replace(/\/$/, "")}/publish`;
+    const publishUrl = toHttpPublishUrl(workerUrl);
     const res = await fetch(publishUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -121,4 +124,15 @@ try {
   }
 } finally {
   await browser.close();
+}
+
+function toHttpPublishUrl(url) {
+  const parsed = new URL(url.trim());
+  if (parsed.protocol === "ws:") parsed.protocol = "http:";
+  if (parsed.protocol === "wss:") parsed.protocol = "https:";
+  if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+    parsed.pathname = `${parsed.pathname.replace(/\/$/, "")}/publish`;
+    return parsed.toString();
+  }
+  throw new Error(`Unsupported worker URL: ${url}`);
 }

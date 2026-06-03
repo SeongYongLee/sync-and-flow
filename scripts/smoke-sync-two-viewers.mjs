@@ -1,7 +1,7 @@
 import { chromium } from "playwright-core";
 
 const url = process.argv[2] ?? "http://127.0.0.1:5175/?worker=ws://127.0.0.1:8787&bridgePaused=1";
-const publishUrl = process.argv[3] ?? "http://127.0.0.1:8787/publish";
+const publishUrl = process.argv[3] ?? toHttpPublishUrl(new URL(url).searchParams.get("worker") ?? "ws://127.0.0.1:8787");
 const chromePath = process.env.CHROME_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 const identity = { userId: "sync-smoke", nickname: "Sync Smoke", color: "#80b4ff" };
@@ -60,4 +60,15 @@ async function newViewer() {
     localStorage.setItem("sf:viewer-identity", JSON.stringify(storedIdentity));
   }, identity);
   return page;
+}
+
+function toHttpPublishUrl(workerUrl) {
+  const parsed = new URL(workerUrl.trim());
+  if (parsed.protocol === "ws:") parsed.protocol = "http:";
+  if (parsed.protocol === "wss:") parsed.protocol = "https:";
+  if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+    parsed.pathname = `${parsed.pathname.replace(/\/$/, "")}/publish`;
+    return parsed.toString();
+  }
+  throw new Error(`Unsupported worker URL: ${workerUrl}`);
 }

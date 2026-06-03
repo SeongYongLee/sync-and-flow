@@ -456,54 +456,54 @@ viewers:     Map<viewerId, { ws, visiblePeers: Set<userId> }>
 ---
 
 **신규 — 어댑터**:
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/core/adapters/types.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/core/adapters/claude.ts` (실 구현, Phase 1 parse.ts 이전)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/core/adapters/codex.ts` (실 구현)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/core/adapters/cursor-agent.ts` (stub)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/core/adapters/gemini-cli.ts` (stub)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/core/adapters/antigravity.ts` (stub)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/core/adapters/cursor.ts` (stub, sqlite-poll)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/core/adapters/claude-desktop.ts` (stub)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/core/adapters/copilot.ts` (stub)
+- `src/core/adapters/types.ts`
+- `src/core/adapters/claude.ts` (실 구현, Phase 1 parse.ts 이전)
+- `src/core/adapters/codex.ts` (실 구현)
+- `src/core/adapters/cursor-agent.ts` (stub)
+- `src/core/adapters/gemini-cli.ts` (stub)
+- `src/core/adapters/antigravity.ts` (stub)
+- `src/core/adapters/cursor.ts` (stub, sqlite-poll)
+- `src/core/adapters/claude-desktop.ts` (stub)
+- `src/core/adapters/copilot.ts` (stub)
 
 **신규 — Codex fixtures & 테스트**:
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/fixtures/codex-single-turn.jsonl`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/fixtures/codex-model-switch.jsonl`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/fixtures/codex-cumulative-dup.jsonl`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/fixtures/codex-cached-heavy.jsonl`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/tests/codex-adapter.test.ts`
+- `fixtures/codex-single-turn.jsonl`
+- `fixtures/codex-model-switch.jsonl`
+- `fixtures/codex-cumulative-dup.jsonl`
+- `fixtures/codex-cached-heavy.jsonl`
+- `tests/codex-adapter.test.ts`
 
 **신규 — node sources**:
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/node/sources/registry.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/node/sources/jsonl-tail.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/node/sources/sqlite-poll.ts` (skeleton)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/node/sources/json-snapshot.ts` (skeleton)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/worker/wrangler.toml`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/worker/src/index.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/worker/src/room.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/worker/src/sample.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/shared/nickname.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/web/identity.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/web/ws-client.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/web/diagnostics.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/apps/flow-link/src-tauri/src/lib.rs` (Tauri shell + Rust native bridge)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/apps/flow-link/src-tauri/src/native_bridge.rs` (Claude/Codex parser + path detection tests)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/apps/flow-link/src-tauri/tauri.conf.json`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/apps/flow-link/package.json`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/scripts/e2e-worker-publish.mjs`
+- `src/node/sources/registry.ts`
+- `src/node/sources/jsonl-tail.ts`
+- `src/node/sources/sqlite-poll.ts` (skeleton)
+- `src/node/sources/json-snapshot.ts` (skeleton)
+- `worker/wrangler.toml`
+- `worker/src/index.ts`
+- `worker/src/room.ts`
+- `worker/src/sample.ts`
+- `src/shared/nickname.ts`
+- `src/web/identity.ts`
+- `src/web/ws-client.ts`
+- `src/web/diagnostics.ts`
+- `apps/flow-link/src-tauri/src/lib.rs` (Tauri shell + Rust native bridge)
+- `apps/flow-link/src-tauri/src/native_bridge.rs` (Claude/Codex parser + path detection tests)
+- `apps/flow-link/src-tauri/tauri.conf.json`
+- `apps/flow-link/package.json`
+- `scripts/e2e-worker-publish.mjs`
 
 **수정**:
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/core/parse.ts` (얇은 위임 레이어로 축소)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/core/types.ts` (`ExtractedTurn.source/provider` 추가)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/core/pricing.ts` (provider 분리)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/core/pricing-table.json` (openai 모델 스텁 단가)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/node/watcher.ts` (multi-source 지원)
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/server/bridge.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/web/main.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/web/runtime-url.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/src/web/stream-client.ts`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/package.json`
-- `/Users/iseong-yong/Desktop/code/personal/sync-and-flow/index.html` (HUD, Flow Link CTA, Mobile QR, Diagnostics UI)
+- `src/core/parse.ts` (얇은 위임 레이어로 축소)
+- `src/core/types.ts` (`ExtractedTurn.source/provider` 추가)
+- `src/core/pricing.ts` (provider 분리)
+- `src/core/pricing-table.json` (openai 모델 스텁 단가)
+- `src/node/watcher.ts` (multi-source 지원)
+- `src/server/bridge.ts`
+- `src/web/main.ts`
+- `src/web/runtime-url.ts`
+- `src/web/stream-client.ts`
+- `package.json`
+- `index.html` (HUD, Flow Link CTA, Mobile QR, Diagnostics UI)
 
 ---
 
