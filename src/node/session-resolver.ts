@@ -1,5 +1,5 @@
 import { readdir, stat } from "node:fs/promises";
-import { join, basename } from "node:path";
+import { join } from "node:path";
 import { sessionDir, projectsDir } from "../core/paths.js";
 import { isSessionFile } from "./tail.js";
 

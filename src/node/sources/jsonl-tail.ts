@@ -85,11 +85,6 @@ export class JsonlTailDriver {
     this.tails.clear();
   }
 
-  private async getSize(filePath: string): Promise<number> {
-    const s = await stat(filePath).catch(() => null);
-    return s?.size ?? 0;
-  }
-
   private async seedAndGetSize(filePath: string, adapter: SourceAdapter): Promise<number> {
     const [s, content] = await Promise.all([
       stat(filePath).catch(() => null),
