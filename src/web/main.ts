@@ -4,6 +4,7 @@ import { connectPresence } from "./ws-client.js";
 import { setupMobileQr } from "./mobile-qr.js";
 import { setupFlowLinkPrompt } from "./flow-link.js";
 import { setupDiagnostics } from "./diagnostics.js";
+import { DEMO_CORE_ID, createDemoFlowState, ensureDemoFlowCore, nextDemoTurn, removeDemoFlowCore, shouldShowDemoFlow } from "./demo-flow.js";
 import { drawFlowBackdrop, GridLayer, gridStepForEnergy } from "./grid.js";
 import { HudController } from "./hud.js";
 import { CoreRenderer, displayCoreRadius } from "./core-renderer.js";
@@ -20,14 +21,17 @@ import type { PeerMeta, PresenceSnapshotMessage, TurnMessage, WorkerToBrowserMes
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const ctx = canvas.getContext("2d")!;
+const demoBadge = document.getElementById("demo-badge")!;
 
 const hud = new HudController();
 const coreRenderer = new CoreRenderer(ctx);
 const particles = new ParticleSystem();
 const cores = new Map<string, CoreState>();
 const grid = new GridLayer();
+const demoFlow = createDemoFlowState(performance.now());
 let selfId = "";
 let isViewerOnly = false;
+let presenceMode: "local-bridge" | "browser-only" = "browser-only";
 let currentZoom = 1;
 let lastFrameAt = performance.now();
 const seenTurns = new Set<string>();
@@ -55,6 +59,7 @@ function layoutCores() {
 }
 
 function updateRoster(peers: PeerMeta[]) {
+  if (peers.length > 0) removeDemoFlowCore(cores);
   reconcileRoster(cores, selfId, peers, viewport());
 }
 
@@ -85,6 +90,8 @@ function currentWorldEnergy(): number {
 function tick(now = performance.now()) {
   const frameScale = Math.min(Math.max((now - lastFrameAt) / 16.67, 0.5), 2);
   lastFrameAt = now;
+  updateDemoBadge();
+  updateDemoFlow(now);
 
   ctx.fillStyle = "rgba(8, 6, 20, 0.25)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -102,18 +109,43 @@ function tick(now = performance.now()) {
   drawGrid(currentWorldEnergy(), now);
 
   const size = viewport();
+  const primaryId = primaryRenderCoreId();
   for (const core of cores.values()) {
-    coreRenderer.draw(core, { selfId, viewport: size, frameScale, currentZoom });
+    coreRenderer.draw(core, { selfId: primaryId, viewport: size, frameScale, currentZoom });
   }
 
-  particles.draw(ctx, cores, frameScale);
+  particles.draw(ctx, particleTargets(size), frameScale);
 
   ctx.restore();
 
   requestAnimationFrame(tick);
 }
 
+function primaryRenderCoreId(): string {
+  return isDemoFlowVisible() ? DEMO_CORE_ID : selfId;
+}
+
+function updateDemoBadge(): void {
+  demoBadge.hidden = !isDemoFlowVisible();
+}
+
+function isDemoFlowVisible(): boolean {
+  return shouldShowDemoFlow(presenceMode, cores);
+}
+
+function particleTargets(size: { width: number; height: number }) {
+  const targets = new Map<string, CoreState & { absorbRadius: number }>();
+  for (const core of cores.values()) {
+    targets.set(core.id, {
+      ...core,
+      absorbRadius: displayCoreRadius(core, core.id === selfId || core.id === DEMO_CORE_ID, size, false),
+    });
+  }
+  return targets;
+}
+
 function applyTurn(ownerId: string, event: TurnEvent | TurnMessage) {
+  removeDemoFlowCore(cores);
   const dedupKey = turnDedupKey(ownerId, event);
   if (seenTurns.has(dedupKey)) return;
   seenTurns.add(dedupKey);
@@ -125,9 +157,27 @@ function applyTurn(ownerId: string, event: TurnEvent | TurnMessage) {
 }
 
 function applySnapshot(ownerId: string, event: SnapshotEvent | PresenceSnapshotMessage) {
+  removeDemoFlowCore(cores);
   if (applySnapshotEvent(ownerId, event, { cores, hud, selfId, viewport: viewport(), shouldUpdateHud }) && ownerId === selfId && "type" in event) {
     const core = cores.get(ownerId);
     if (core) saveSnapshotProgress(ownerId, event, core);
+  }
+}
+
+function updateDemoFlow(now: number): void {
+  if (!isDemoFlowVisible()) return;
+  ensureDemoFlowCore(cores, viewport());
+  const turn = nextDemoTurn(demoFlow, now);
+  if (turn) {
+    applyTurnEvent(DEMO_CORE_ID, turn, {
+      cores,
+      particles,
+      hud,
+      selfId: DEMO_CORE_ID,
+      viewport: viewport(),
+      now: () => now,
+      shouldUpdateHud: (ownerId) => ownerId === DEMO_CORE_ID,
+    });
   }
 }
 
@@ -164,6 +214,7 @@ async function boot() {
   setupFlowLinkPrompt(mode);
   selfId = identity.userId;
   isViewerOnly = mode !== "local-bridge";
+  presenceMode = mode;
   if (mode === "local-bridge") {
     ensureCore({ id: identity.userId, nickname: identity.nickname, color: identity.color });
   }
@@ -171,6 +222,7 @@ async function boot() {
 
   const storedProgress = loadProgress(selfId);
   if (storedProgress) {
+    removeDemoFlowCore(cores);
     ensureCore({ id: identity.userId, nickname: identity.nickname, color: identity.color });
     layoutCores();
     applySnapshot(selfId, progressToSnapshot(storedProgress));

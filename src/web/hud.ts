@@ -12,7 +12,7 @@ export class HudController {
   private readonly model = document.getElementById("model")!;
   private readonly planet = document.getElementById("planet")!;
   private readonly planetMix = document.getElementById("planet-mix")!;
-  private readonly viewers = document.getElementById("viewers")!;
+  private readonly viewers = document.getElementById("viewers");
   private readonly turns = document.getElementById("turns")!;
   private readonly output = document.getElementById("output-tokens")!;
   private readonly energy = document.getElementById("energy")!;
@@ -33,7 +33,7 @@ export class HudController {
   updateTurn(source: string, model: string, turns: number, outputTokens: number, energy: number, planetClass: PlanetClass = "drift", mixLabel = ""): void {
     const meta = PLANET_META[planetClass];
     this.model.textContent = formatModelLabel(source, model);
-    this.planet.textContent = `${meta.label} · ${meta.role}`;
+    this.planet.textContent = "Planet Mix";
     this.planet.title = meta.description;
     this.planetMix.textContent = mixLabel || meta.label;
     this.turns.textContent = compactCount(turns);
@@ -42,7 +42,7 @@ export class HudController {
   }
 
   updateViewerCount(count: number): void {
-    this.viewers.textContent = compactCount(count);
+    if (this.viewers) this.viewers.textContent = compactCount(count);
   }
 
   private renderStatus(detail: string): void {

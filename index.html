@@ -72,12 +72,19 @@
 
       #hud .summary {
         display: grid;
-        gap: 4px;
+        gap: 3px;
+      }
+
+      #hud .summary .value {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       #hud .metrics {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
       }
 
@@ -105,6 +112,44 @@
         user-select: none;
         -webkit-user-select: none;
         -webkit-user-drag: none;
+      }
+
+      #demo-badge {
+        position: fixed;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid rgba(255, 184, 96, 0.22);
+        border-radius: 999px;
+        padding: 7px 10px;
+        background: rgba(12, 15, 31, 0.72);
+        color: rgba(255, 220, 170, 0.82);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-user-drag: none;
+        backdrop-filter: blur(12px);
+      }
+
+      #demo-badge[hidden] {
+        display: none;
+      }
+
+      #demo-badge::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: rgba(255, 184, 96, 0.86);
+        box-shadow: 0 0 14px rgba(255, 184, 96, 0.46);
       }
 
       #energy-bar-wrap {
@@ -264,10 +309,10 @@
         left: 24px;
         bottom: 28px;
         z-index: 12;
-        width: min(306px, calc(100vw - 48px));
+        width: min(360px, calc(100vw - 48px));
         padding: 14px;
         border: 1px solid rgba(128, 180, 255, 0.22);
-        border-radius: 16px;
+        border-radius: 8px;
         background: rgba(12, 15, 31, 0.9);
         box-shadow: 0 18px 60px rgba(0, 0, 0, 0.34);
         backdrop-filter: blur(16px);
@@ -652,6 +697,12 @@
           font-size: 9px;
         }
 
+        #demo-badge {
+          top: 14px;
+          font-size: 9px;
+          padding: 6px 9px;
+        }
+
         #energy-bar-wrap {
           bottom: 48px;
         }
@@ -661,10 +712,10 @@
         }
 
         #flow-link-card {
-          top: 150px;
+          top: 126px;
           bottom: auto;
           left: 16px;
-          width: min(306px, calc(100vw - 32px));
+          width: min(360px, calc(100vw - 32px));
           padding: 12px;
         }
 
@@ -688,15 +739,10 @@
         <span class="value" id="model">—</span>
       </div>
       <div class="summary">
-        <span class="value" id="planet">Drift · neutral</span>
-        <span class="label">Mix</span>
+        <span class="label" id="planet">Planet Mix</span>
         <span class="value subtle" id="planet-mix">Drift</span>
       </div>
       <div class="metrics">
-        <div class="metric">
-          <span class="label">Viewers</span>
-          <span class="value" id="viewers">0</span>
-        </div>
         <div class="metric">
           <span class="label">Turns</span>
           <span class="value" id="turns">0</span>
@@ -709,6 +755,7 @@
     </div>
 
     <div id="status">● WAITING</div>
+    <div id="demo-badge" hidden>Demo Mode</div>
     <button id="diagnostics-toggle" type="button">DIAGNOSTICS</button>
 
     <div id="energy-bar-wrap">
@@ -748,17 +795,17 @@
         <header>
           <div>
             <h2 id="flow-link-title">Flow Link Desktop App</h2>
-            <p>Install the desktop app from the DMG. Flow Link connects this computer through its built-in local bridge.</p>
+            <p>Install the desktop app to connect this computer through Flow Link's local bridge.</p>
           </div>
           <button id="flow-link-close" type="button" aria-label="Close">×</button>
         </header>
         <ul>
-          <li>It reads local Claude/Codex/Pi token logs.</li>
-          <li>It sends token counts, source, model, and timestamps.</li>
+          <li>It reads local Claude, Codex, and Pi token logs.</li>
+          <li>It only sends token counts, source, model, and timestamps.</li>
           <li>It never sends prompts or responses.</li>
         </ul>
-        <p>Install and open the desktop app. It starts the local bridge automatically and connects this browser to:</p>
-        <pre id="flow-link-worker-url"></pre>
+        <p>Install and open the desktop app. It starts the local bridge automatically and connects this browser through a local events endpoint.</p>
+        <pre id="flow-link-worker-url" hidden></pre>
         <div id="flow-link-downloads">
           <a id="flow-link-download-mac" class="secondary-action" href="/downloads/Flow-Link.dmg" download>Download for macOS</a>
           <a id="flow-link-download-windows" class="secondary-action" href="/downloads/Flow-Link-Setup.exe" download>Download for Windows</a>
