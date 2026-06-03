@@ -48,7 +48,7 @@ export class CoreRenderer {
     const r = displayCoreRadius(core, isSelf, options.viewport);
     const energyLevel = energyVisualLevel(core.energy);
     const rgb = hexToRgb(core.color);
-    const alpha = (isSelf ? 0.84 : 0.68) + energyLevel * (isSelf ? 0.12 : 0.16);
+    const alpha = (isSelf ? 0.82 : 0.66) + energyLevel * (isSelf ? 0.06 : 0.08);
     const variant = planetVariant(core.id, isSelf);
     const visual = this.resolveVisual(core, options.frameScale);
 
@@ -69,7 +69,7 @@ export class CoreRenderer {
         cfg.tiltY,
         core.ringAngles[i]!,
         visual.accentRgb,
-        cfg.alpha * variant.ringAlpha * visual.ringAlpha * (0.72 + energyLevel * 0.72),
+        cfg.alpha * variant.ringAlpha * visual.ringAlpha * (0.72 + energyLevel * 0.38),
         false,
       );
     }
@@ -99,7 +99,7 @@ export class CoreRenderer {
         cfg.tiltY,
         core.ringAngles[i]!,
         visual.accentRgb,
-        cfg.alpha * variant.ringAlpha * visual.ringAlpha * (0.72 + energyLevel * 0.72),
+        cfg.alpha * variant.ringAlpha * visual.ringAlpha * (0.72 + energyLevel * 0.38),
         true,
       );
     }
@@ -114,10 +114,10 @@ export class CoreRenderer {
   private drawGlow(core: CoreState, r: number, isSelf: boolean, visual: ModelVisual): void {
     const auraScale = core.auraScale ?? 1;
     const energyLevel = energyVisualLevel(core.energy);
-    const glowRadius = r * (2.45 + energyLevel * 1.25) * auraScale;
+    const glowRadius = r * (2.35 + energyLevel * 0.65) * auraScale;
     const glow = this.ctx.createRadialGradient(core.x, core.y, r * 0.4, core.x, core.y, glowRadius);
-    glow.addColorStop(0, `rgba(${visual.accentRgb}, ${((isSelf ? 0.18 : 0.12) + energyLevel * 0.18) * visual.glowAlpha})`);
-    glow.addColorStop(0.42, `rgba(${visual.accentRgb}, ${energyLevel * 0.11 * visual.glowAlpha})`);
+    glow.addColorStop(0, `rgba(${visual.accentRgb}, ${((isSelf ? 0.16 : 0.1) + energyLevel * 0.08) * visual.glowAlpha})`);
+    glow.addColorStop(0.42, `rgba(${visual.accentRgb}, ${energyLevel * 0.045 * visual.glowAlpha})`);
     glow.addColorStop(1, `rgba(${visual.accentRgb}, 0)`);
     this.ctx.beginPath();
     this.ctx.arc(core.x, core.y, glowRadius, 0, Math.PI * 2);
